@@ -1,0 +1,26 @@
+[project]
+name = "tender-agent"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "bidyutdas@laser", email = "bidyutdas.laserpowerinfra@gmail.com" }
+]
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "alembic>=1.19.1",
+    "docling>=2.124.0",
+    "httpx>=0.28.1",
+    "pika>=1.4.4",
+    "psycopg[binary]>=3.3.5",
+    "pydantic-settings>=2.15.0",
+    "qdrant-client>=1.19.0",
+    "sqlmodel>=0.0.42",
+]
+
+[project.scripts]
+tender-agent = "tender_agent:main"
+
+[build-system]
+requires = ["uv_build>=0.12.3,<0.13.0"]
+build-backend = "uv_build"
