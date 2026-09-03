@@ -7,7 +7,9 @@ class IngestionState(TypedDict, total=False):
     file_url:str
 
     #local document
+    working_dir:str
     file_path:str
+
 
     #page tracking
     total_pages:int
@@ -20,3 +22,4 @@ class IngestionState(TypedDict, total=False):
     # Processing
     status:str
     error:str|None    
+

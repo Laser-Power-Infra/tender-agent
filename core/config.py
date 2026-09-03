@@ -49,5 +49,14 @@ class Settings(BaseSettings):
             raise ValueError("RABBITMQ_URL missing")
         return v.strip()
 
+    temp_dir:str
+    @field_validator("temp_dir", mode="before")
+    @classmethod
+    def is_exist_temp_dir(cls, v:str)-> str:
+        if v is None and not v.strip():
+            raise ValueError("TEMP_DIR is not set")
+        return v.strip()
+        
+
 
 settings = Settings()  # type: ignore[call-arg]
