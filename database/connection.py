@@ -1,7 +1,7 @@
 from sqlmodel import SQLModel, Session, create_engine
 from sqlalchemy import text
 
-from tender_agent.core.config import settings
+from core.config import settings
 
 # Normalize to psycopg driver: postgresql+psycopg://
 # SQLModel.create_engine wraps sqlalchemy.create_engine (future=True)
@@ -18,7 +18,7 @@ def create_db_and_tables() -> None:
     Import models inside function to avoid circular imports and ensure
     metadata is populated before create_all (see SQLModel docs: from . import models).
     """
-    from tender_agent.database import models as _models  # noqa: F401  # ensure User is imported
+    from database import models as _models  # noqa: F401  # ensure User is imported
 
     SQLModel.metadata.create_all(engine)
 

@@ -6,8 +6,8 @@ from sqlalchemy import pool
 from alembic import context
 from sqlmodel import SQLModel
 
-from tender_agent.core.config import settings
-from tender_agent.database import models
+from core.config import settings
+from database import models
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

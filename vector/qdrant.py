@@ -1,6 +1,6 @@
 from qdrant_client import QdrantClient
 
-from tender_agent.core.config import settings
+from core.config import settings
 
 
 qdrant = QdrantClient(

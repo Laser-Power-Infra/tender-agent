@@ -39,7 +39,15 @@ class Settings(BaseSettings):
             raise ValueError("QDRANT_API_KEY missing")
         return v.strip()
 
+    # rabbitmq
+    rabbitmq_url:str
 
+    @field_validator("rabbitmq_url", mode="before")
+    @classmethod
+    def validate_rabbitmq_url(cls, v:str)->str:
+        if v is None and not v.strip():
+            raise ValueError("RABBITMQ_URL missing")
+        return v.strip()
 
 
 settings = Settings()  # type: ignore[call-arg]
