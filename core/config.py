@@ -1,10 +1,12 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import field_validator
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=str(Path(__file__).resolve().parents[1] / ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
         case_sensitive=False,
@@ -56,6 +58,34 @@ class Settings(BaseSettings):
         if v is None and not v.strip():
             raise ValueError("TEMP_DIR is not set")
         return v.strip()
+
+    # langfuse observability (disabled by default, enable with LANGFUSE_ENABLED=true)
+    langfuse_enabled: bool = False
+    langfuse_public_key: str | None = None
+    langfuse_secret_key: str | None = None
+    langfuse_host: str | None = None
+
+    # google drive oauth (3-env, no file dependency)
+    google_oauth_client_id: str | None = None
+    google_oauth_client_secret: str | None = None
+    google_oauth_refresh_token: str | None = None
+    google_oauth_token_uri: str = "https://oauth2.googleapis.com/token"
+
+    @field_validator(
+        "google_oauth_client_id",
+        "google_oauth_client_secret",
+        "google_oauth_refresh_token",
+        "google_oauth_token_uri",
+        mode="before",
+    )
+    @classmethod
+    def strip_google_oauth(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        if isinstance(v, str):
+            v = v.strip().strip('"').strip("'").strip()
+            return v or None
+        return v
         
 
 

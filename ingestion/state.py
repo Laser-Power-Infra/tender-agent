@@ -1,19 +1,26 @@
-from typing import TypedDict
+import operator
+from typing import Annotated, TypedDict
 
 class IngestionState(TypedDict, total=False):
 
     job_id:str
     document_id:str
     file_url:str
+    original_url:str
+    reference_no:str
+    document_tag:str
+    document_name:str|None
 
     #local document
     working_dir:str
     file_path:str
+    doc_cache:str|None
 
 
     #page tracking
     total_pages:int
     current_page:int
+    parsed_pages:Annotated[list[dict], operator.add]
 
     # Current page processing
     page_markdown:str
