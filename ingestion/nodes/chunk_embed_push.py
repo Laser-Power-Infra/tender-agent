@@ -1,4 +1,5 @@
 import logging
+import re
 import time
 import uuid
 from typing import Any
@@ -71,6 +72,78 @@ def _get_sparse_embedder():
     return _sparse_embedder
 
 
+# ponytail: table-aware chunking — keep | ... | blocks intact, header repeat when >chunk_size. O(n) scan
+def _normalize_table_block(block: str) -> str:
+    lines = []
+    for l in block.split("\n"):
+        if not l.strip():
+            continue
+        t = l.strip()
+        # normalize pipes: "  |  a  |  b | " -> "| a | b |"
+        t = re.sub(r"\s*\|\s*", " | ", t)
+        t = re.sub(r" {2,}", " ", t).strip()
+        if t and not t.startswith("|"):
+            t = "| " + t
+        if t and not t.endswith("|"):
+            t = t + " |"
+        # collapse duplicate pipes from fix
+        t = re.sub(r"\|\s*\|", "| |", t)
+        # trim again
+        t = t.strip()
+        lines.append(t)
+    return "\n".join(lines)
+
+
+def _split_markdown_by_tables(md: str) -> list[tuple[str, bool]]:
+    # split into (block, is_table) preserving order. table = consecutive lines starting with |
+    lines = md.split("\n")
+    blocks: list[tuple[str, bool]] = []
+    buf: list[str] = []
+    tbl: list[str] = []
+    for line in lines:
+        is_tbl = line.strip().startswith("|")
+        if is_tbl:
+            if buf:
+                blocks.append(("\n".join(buf), False))
+                buf = []
+            tbl.append(line)
+        else:
+            if tbl:
+                blocks.append(("\n".join(tbl), True))
+                tbl = []
+            buf.append(line)
+    if tbl:
+        blocks.append(("\n".join(tbl), True))
+    if buf:
+        blocks.append(("\n".join(buf), False))
+    return [(b, t) for b, t in blocks if b.strip()]
+
+
+def _split_large_table(norm: str, chunk_size: int, overlap: int) -> list[str]:
+    rows = [r for r in norm.split("\n") if r.strip()]
+    if len(rows) <= 2:
+        return [norm]
+    header = rows[0]
+    sep = rows[1] if "---" in rows[1] else None
+    header_block = header + ("\n" + sep if sep else "")
+    data = rows[2:] if sep else rows[1:]
+    out: list[str] = []
+    cur: list[str] = []
+    cur_len = len(header_block) + 1
+    for r in data:
+        rl = len(r) + 1
+        if cur and cur_len + rl > chunk_size:
+            out.append(header_block + "\n" + "\n".join(cur))
+            # ponytail: no overlap for tables, header repeat gives context cheaper than row overlap
+            cur = []
+            cur_len = len(header_block) + 1
+        cur.append(r)
+        cur_len += rl
+    if cur:
+        out.append(header_block + "\n" + "\n".join(cur))
+    return out if out else [norm]
+
+
 def chunk_embed_push(state: IngestionState) -> dict[str, Any]:
     parsed_pages: list[dict] = state.get("parsed_pages") or []
     document_id: str | None = state.get("document_id")
@@ -105,12 +178,30 @@ def chunk_embed_push(state: IngestionState) -> dict[str, Any]:
         if not markdown.strip():
             continue
         meta = page.get("metadata") or {}
-        # langchain split
+        # table-aware split — ponytail: keep | tables intact, fallback to recursive splitter for prose
+        texts: list[str] = []
         try:
-            texts = splitter.split_text(markdown)
+            blocks = _split_markdown_by_tables(markdown)
+            for block, is_table in blocks:
+                if is_table:
+                    norm = _normalize_table_block(block)
+                    if len(norm) <= settings.chunk_size:
+                        texts.append(norm)
+                    else:
+                        texts.extend(_split_large_table(norm, settings.chunk_size, settings.chunk_overlap))
+                else:
+                    # collapse padded spaces for prose but keep paragraph breaks
+                    cleaned = re.sub(r" {2,}", " ", block)
+                    if cleaned.strip():
+                        texts.extend(splitter.split_text(cleaned))
+            if not texts:
+                texts = [markdown]
         except Exception as e:
-            logger.warning("split failed page_no=%s: %s, fallback single chunk", page_no, e)
-            texts = [markdown]
+            logger.warning("table-aware split failed page_no=%s: %s, fallback splitter", page_no, e)
+            try:
+                texts = splitter.split_text(markdown)
+            except Exception:
+                texts = [markdown]
 
         for idx, t in enumerate(texts):
             if not t.strip():
