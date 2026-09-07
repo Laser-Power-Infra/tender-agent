@@ -196,18 +196,16 @@ def chunk_embed_push(state: IngestionState) -> dict[str, Any]:
         logger.warning("sparse embedding failed, continuing dense only: %s", e)
         sparse_vectors = None
 
-    # build points
+    # build points — ponytail: named vectors {"dense":..., "sparse": SparseVector} per PointStruct.extra=forbid
     from qdrant_client.http.models import PointStruct, SparseVector
 
     points: list[PointStruct] = []
     vector_ids: list[str] = []
-    for c, dense in zip(all_chunks, dense_vectors):
+    for idx, (c, dense) in enumerate(zip(all_chunks, dense_vectors)):
         sparse = None
         if sparse_vectors is not None:
-            # align by index
-            idx = all_chunks.index(c)
-            sv = sparse_vectors[idx]
             try:
+                sv = sparse_vectors[idx]
                 indices = sv.indices.tolist() if hasattr(sv.indices, "tolist") else list(sv.indices)
                 values = sv.values.tolist() if hasattr(sv.values, "tolist") else list(sv.values)
                 if indices and values:
@@ -219,28 +217,36 @@ def chunk_embed_push(state: IngestionState) -> dict[str, Any]:
         payload = {
             "text": c["text"],
             "page_no": c["page_no"],
+            "pageNo": c["page_no"],
             "chunk_idx": c["metadata"]["chunk_idx"],
+            "chunkIdx": c["metadata"]["chunk_idx"],
             "chunk_count": c["metadata"]["chunk_count"],
+            "chunkCount": c["metadata"]["chunk_count"],
             "document_id": c["metadata"]["document_id"],
+            "documentId": c["metadata"]["document_id"],
             "job_id": c["metadata"]["job_id"],
+            "jobId": c["metadata"]["job_id"],
             "reference_no": c["metadata"]["reference_no"],
+            "referenceNo": c["metadata"]["reference_no"],
             "document_tag": c["metadata"]["document_tag"],
+            "documentTag": c["metadata"]["document_tag"],
+            "document_type": c["metadata"]["document_tag"],
+            "documentType": c["metadata"]["document_tag"],
             "document_name": c["metadata"]["document_name"],
+            "documentName": c["metadata"]["document_name"],
             "original_url": c["metadata"]["original_url"],
+            "originalUrl": c["metadata"]["original_url"],
             "total_pages": c["metadata"]["total_pages"],
+            "totalPages": c["metadata"]["total_pages"],
         }
-        # remove None values to keep payload clean
         payload = {k: v for k, v in payload.items() if v is not None}
 
-        pt_kwargs: dict[str, Any] = {
-            "id": c["id"],
-            "vector": dense,
-            "payload": payload,
-        }
+        # PointStruct.vector is Dict[str, Dense|SparseVector] for named vectors
+        vector_dict: dict[str, Any] = {"dense": dense}
         if sparse is not None:
-            pt_kwargs["sparse_vectors"] = {"sparse": sparse}
+            vector_dict["sparse"] = sparse
 
-        points.append(PointStruct(**pt_kwargs))
+        points.append(PointStruct(id=c["id"], vector=vector_dict, payload=payload))
         vector_ids.append(c["id"])
 
     # upsert in batches — ponytail: sync sequential batch, no parallel until profile says qdrant is bottleneck
