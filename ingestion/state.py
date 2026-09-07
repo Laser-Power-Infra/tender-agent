@@ -1,5 +1,4 @@
-import operator
-from typing import Annotated, TypedDict
+from typing import TypedDict
 
 class IngestionState(TypedDict, total=False):
 
@@ -20,7 +19,7 @@ class IngestionState(TypedDict, total=False):
     #page tracking
     total_pages:int
     current_page:int
-    parsed_pages:Annotated[list[dict], operator.add]
+    parsed_pages:list[dict]
 
     # Current page processing
     page_markdown:str

@@ -48,13 +48,23 @@ def prepare_pages(state: dict) -> dict:
         pages = doc.pages if hasattr(doc, "pages") else []
         total = len(pages) if hasattr(pages, "__len__") else 0
 
-        # cache full dict for per-page slicing (prov has page_no)
+        # cache full dict + per-page markdown (with tables) via export_to_markdown(page_no=i)
         try:
             d = doc.export_to_dict()
+            # build per-page markdown map using native docling page_no param (handles tables as pipes)
+            page_mds = {}
+            for i in range(1, total + 1):
+                try:
+                    md = doc.export_to_markdown(page_no=i)
+                    page_mds[str(i)] = md
+                except Exception as e:
+                    logger.warning("export_to_markdown page %s failed: %s", i, e)
+                    page_mds[str(i)] = ""
+            d["_page_markdowns"] = page_mds
             Path(doc_cache).write_text(json.dumps(d, ensure_ascii=False), encoding="utf-8")
-            logger.info("prepare_pages cached doc.json total=%s ref=%s size=%s", total, reference_no, Path(doc_cache).stat().st_size)
+            logger.info("prepare_pages cached doc.json total=%s ref=%s size=%s pages_with_tables=%s", total, reference_no, Path(doc_cache).stat().st_size, sum(1 for v in page_mds.values() if "|" in v))
         except Exception as e:
-            logger.warning("prepare_pages cache failed %s: %s", doc_cache, e)
+            logger.warning("prepare_pages cache failed %s: %s", doc_cache, e, exc_info=True)
             doc_cache = None
 
         # fallback if doc.pages empty (scanned pdf)

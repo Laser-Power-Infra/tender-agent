@@ -7,9 +7,15 @@ logger = logging.getLogger(__name__)
 
 def _extract_page_from_dict(doc_dict: dict, page_no: int) -> tuple[str, str]:
     """
-    Extract markdown/text for page_no from doc.export_to_dict() using prov.page_no.
-    Falls back to concatenating texts/tables with matching page.
+    Prefer precomputed _page_markdowns (export_to_markdown page_no) which includes tables as pipes.
+    Fallback to prov-based text join with table grid -> markdown table.
     """
+    # fast path: cached per-page markdown with tables
+    pms = doc_dict.get("_page_markdowns") or {}
+    md = pms.get(str(page_no)) or pms.get(page_no)
+    if md and md.strip():
+        return md, md
+
     texts = doc_dict.get("texts", [])
     tables = doc_dict.get("tables", [])
     pictures = doc_dict.get("pictures", [])
@@ -18,11 +24,39 @@ def _extract_page_from_dict(doc_dict: dict, page_no: int) -> tuple[str, str]:
         prov = item.get("prov") or []
         if not prov:
             return None
-        # prov: [{"page_no": 1, ...}]
         p = prov[0] if isinstance(prov, list) else prov
         return p.get("page_no") if isinstance(p, dict) else None
 
+    def _table_to_md(table_item: dict) -> str:
+        # build markdown table from grid
+        data = table_item.get("data") or {}
+        grid = data.get("grid") or []
+        if not grid:
+            return table_item.get("text") or ""
+        # grid: list[row] -> list[cell] with text
+        rows = []
+        for row in grid:
+            cells = []
+            for cell in row:
+                t = cell.get("text") or cell.get("content") or ""
+                # escape pipe
+                t = t.replace("|", "\\|").replace("\n", " ")
+                cells.append(t.strip())
+            rows.append(cells)
+        if not rows:
+            return ""
+        # header row + separator
+        header = "| " + " | ".join(rows[0]) + " |"
+        sep = "| " + " | ".join(["---"] * len(rows[0])) + " |"
+        body = ["| " + " | ".join(r) + " |" for r in rows[1:]]
+        return "\n".join([header, sep] + body)
+
     def _text_of(item: dict) -> str:
+        # table fallback
+        if item in tables:
+            md_tbl = _table_to_md(item)
+            if md_tbl.strip():
+                return md_tbl
         return item.get("text") or item.get("md") or item.get("content") or ""
 
     parts: list[str] = []
@@ -30,10 +64,6 @@ def _extract_page_from_dict(doc_dict: dict, page_no: int) -> tuple[str, str]:
         pg = _page_of(item)
         if pg == page_no:
             t = _text_of(item)
-            # tables may have structured data; include markdown if present
-            if item in tables and "$ref" not in str(item):
-                # try to include table markdown
-                pass
             if t:
                 parts.append(t)
 
@@ -114,13 +144,12 @@ def parse_single_page(state: dict) -> dict:
         meta_base["total_pages"] = total_pages
 
         if not markdown.strip():
-            # last resort: doc.export_to_markdown full then naive split
+            # last resort: doc.export_to_markdown page_no param (handles tables)
             try:
-                full_md = doc.export_to_markdown()
-                # docling inserts page breaks as comments or headers; keep full if per-page empty
+                full_md = doc.export_to_markdown(page_no=page_no)
                 markdown = full_md if full_md else ""
                 text = markdown
-                logger.warning("page %s fallback full_md len=%s ref=%s", page_no, len(markdown), reference_no)
+                logger.warning("page %s fallback page_md len=%s ref=%s has_table=%s", page_no, len(markdown), reference_no, "|" in markdown)
             except Exception:
                 pass
 
