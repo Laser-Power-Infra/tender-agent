@@ -1,0 +1,268 @@
+import logging
+import time
+import uuid
+from typing import Any
+
+from ingestion.state import IngestionState
+from core.config import settings
+from vector.qdrant import ensure_collection, qdrant
+
+logger = logging.getLogger(__name__)
+
+# ponytail: lazy singletons, load once per process. recreate when config changes and process restarts
+_splitter = None
+_dense_embedder = None
+_sparse_embedder = None
+
+
+def _get_splitter():
+    global _splitter
+    if _splitter is not None:
+        return _splitter
+    # ponytail: RecursiveCharacterTextSplitter default, no MarkdownHeader splitter until eval proves need
+    try:
+        from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+        _splitter = RecursiveCharacterTextSplitter(
+            chunk_size=settings.chunk_size,
+            chunk_overlap=settings.chunk_overlap,
+            separators=["\n\n", "\n", " ", ""],
+        )
+    except ImportError:
+        from langchain.text_splitter import RecursiveCharacterTextSplitter  # type: ignore
+
+        _splitter = RecursiveCharacterTextSplitter(
+            chunk_size=settings.chunk_size,
+            chunk_overlap=settings.chunk_overlap,
+            separators=["\n\n", "\n", " ", ""],
+        )
+    return _splitter
+
+
+def _get_dense_embedder():
+    global _dense_embedder
+    if _dense_embedder is not None:
+        return _dense_embedder
+    from langchain_openai import OpenAIEmbeddings
+
+    api_key = (settings.openai_api_key or "").strip() if settings.openai_api_key else ""
+    if not api_key:
+        raise ValueError("OPENAI_API_KEY missing (set in .env)")
+    _dense_embedder = OpenAIEmbeddings(
+        model=settings.embedding_model,
+        api_key=api_key,
+        # ponytail: default retry, no custom backoff until rate-limit hit observed
+    )
+    return _dense_embedder
+
+
+def _get_sparse_embedder():
+    global _sparse_embedder
+    if _sparse_embedder is not None:
+        return _sparse_embedder
+    # ponytail: BM25 local, no network, no SPLADE weights. upgrade to Splade_PP_en_v1 when neural sparse recall needed
+    try:
+        from fastembed import SparseTextEmbedding
+
+        _sparse_embedder = SparseTextEmbedding(model_name="Qdrant/bm25")
+    except Exception as e:
+        logger.warning("sparse embedder init failed (BM25): %s, pushing dense only", e)
+        _sparse_embedder = None
+    return _sparse_embedder
+
+
+def chunk_embed_push(state: IngestionState) -> dict[str, Any]:
+    parsed_pages: list[dict] = state.get("parsed_pages") or []
+    document_id: str | None = state.get("document_id")
+    job_id: str | None = state.get("job_id")
+    reference_no: str | None = state.get("reference_no")
+    document_tag: str | None = state.get("document_tag")
+
+    # filter only parsed pages with markdown
+    usable = [p for p in parsed_pages if p.get("status") == "parsed" and (p.get("markdown") or p.get("text"))]
+    if not usable:
+        err = "no parsed pages to chunk (parsed_pages empty or all failed)"
+        logger.error("%s ref=%s tag=%s doc=%s", err, reference_no, document_tag, document_id)
+        return {"status": "failed", "error": err, "chunks": [], "chunk_count": 0, "vector_ids": []}
+
+    if not document_id:
+        err = "document_id missing in state (run initialize_document first)"
+        logger.error(err)
+        return {"status": "failed", "error": err, "chunks": [], "chunk_count": 0, "vector_ids": []}
+
+    # validate openai key early
+    if not (settings.openai_api_key and settings.openai_api_key.strip()):
+        err = "OPENAI_API_KEY missing, cannot embed"
+        logger.error(err)
+        return {"status": "failed", "error": err, "chunks": [], "chunk_count": 0, "vector_ids": []}
+
+    splitter = _get_splitter()
+    all_chunks: list[dict] = []
+
+    for page in usable:
+        page_no = page.get("page_no")
+        markdown = page.get("markdown") or page.get("text") or ""
+        if not markdown.strip():
+            continue
+        meta = page.get("metadata") or {}
+        # langchain split
+        try:
+            texts = splitter.split_text(markdown)
+        except Exception as e:
+            logger.warning("split failed page_no=%s: %s, fallback single chunk", page_no, e)
+            texts = [markdown]
+
+        for idx, t in enumerate(texts):
+            if not t.strip():
+                continue
+            chunk_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{document_id}:{page_no}:{idx}"))
+            payload_meta = {
+                "document_id": document_id,
+                "job_id": job_id,
+                "reference_no": reference_no,
+                "document_tag": document_tag,
+                "document_name": meta.get("document_name") or state.get("document_name"),
+                "original_url": meta.get("original_url") or state.get("original_url") or state.get("file_url"),
+                "page_no": page_no,
+                "total_pages": meta.get("total_pages") or state.get("total_pages"),
+                "chunk_idx": idx,
+                "chunk_count": len(texts),
+            }
+            all_chunks.append(
+                {
+                    "id": chunk_id,
+                    "text": t,
+                    "page_no": page_no,
+                    "chunk_idx": idx,
+                    "metadata": payload_meta,
+                }
+            )
+
+    if not all_chunks:
+        err = "chunking produced 0 chunks"
+        logger.error("%s ref=%s", err, reference_no)
+        return {"status": "failed", "error": err, "chunks": [], "chunk_count": 0, "vector_ids": []}
+
+    logger.info("chunking done chunks=%s pages=%s ref=%s tag=%s doc=%s", len(all_chunks), len(usable), reference_no, document_tag, document_id)
+
+    # ensure collection (hybrid dense+sparse) — ponytail: single collection, no per-doc sharding until >10M points
+    try:
+        coll = ensure_collection()
+    except Exception as e:
+        err = f"qdrant ensure_collection failed: {type(e).__name__}: {e}"
+        logger.error(err, exc_info=True)
+        return {"status": "failed", "error": err, "chunks": all_chunks, "chunk_count": len(all_chunks), "vector_ids": []}
+
+    # dense embed in batches
+    texts = [c["text"] for c in all_chunks]
+    dense_vectors: list[list[float]] = []
+    try:
+        embedder = _get_dense_embedder()
+        batch = settings.embedding_batch_size or 100
+        for i in range(0, len(texts), batch):
+            batch_texts = texts[i : i + batch]
+            for attempt in range(3):
+                try:
+                    vecs = embedder.embed_documents(batch_texts)
+                    dense_vectors.extend(vecs)
+                    break
+                except Exception as e:
+                    if attempt == 2:
+                        raise
+                    wait = 2**attempt
+                    logger.warning("embed batch %s failed attempt %s: %s retry in %ss", i // batch, attempt + 1, e, wait)
+                    time.sleep(wait)
+    except Exception as e:
+        err = f"dense embedding failed: {type(e).__name__}: {e}"
+        logger.error(err, exc_info=True)
+        return {"status": "failed", "error": err, "chunks": all_chunks, "chunk_count": len(all_chunks), "vector_ids": []}
+
+    if len(dense_vectors) != len(all_chunks):
+        err = f"dense vector count mismatch {len(dense_vectors)} != {len(all_chunks)}"
+        logger.error(err)
+        return {"status": "failed", "error": err, "chunks": all_chunks, "chunk_count": len(all_chunks), "vector_ids": []}
+
+    # sparse embed (BM25) — optional, dense-only fallback
+    sparse_vectors: list[Any] | None = None
+    try:
+        sparse_emb = _get_sparse_embedder()
+        if sparse_emb is not None:
+            # fastembed returns generator of SparseEmbedding
+            raw = list(sparse_emb.embed(texts))
+            # raw elements have .indices and .values (numpy arrays or lists)
+            sparse_vectors = raw
+            logger.info("sparse BM25 generated %s", len(raw))
+    except Exception as e:
+        logger.warning("sparse embedding failed, continuing dense only: %s", e)
+        sparse_vectors = None
+
+    # build points
+    from qdrant_client.http.models import PointStruct, SparseVector
+
+    points: list[PointStruct] = []
+    vector_ids: list[str] = []
+    for c, dense in zip(all_chunks, dense_vectors):
+        sparse = None
+        if sparse_vectors is not None:
+            # align by index
+            idx = all_chunks.index(c)
+            sv = sparse_vectors[idx]
+            try:
+                indices = sv.indices.tolist() if hasattr(sv.indices, "tolist") else list(sv.indices)
+                values = sv.values.tolist() if hasattr(sv.values, "tolist") else list(sv.values)
+                if indices and values:
+                    sparse = SparseVector(indices=indices, values=values)
+            except Exception as e:
+                logger.warning("sparse vector build failed for chunk %s: %s", c["id"], e)
+                sparse = None
+
+        payload = {
+            "text": c["text"],
+            "page_no": c["page_no"],
+            "chunk_idx": c["metadata"]["chunk_idx"],
+            "chunk_count": c["metadata"]["chunk_count"],
+            "document_id": c["metadata"]["document_id"],
+            "job_id": c["metadata"]["job_id"],
+            "reference_no": c["metadata"]["reference_no"],
+            "document_tag": c["metadata"]["document_tag"],
+            "document_name": c["metadata"]["document_name"],
+            "original_url": c["metadata"]["original_url"],
+            "total_pages": c["metadata"]["total_pages"],
+        }
+        # remove None values to keep payload clean
+        payload = {k: v for k, v in payload.items() if v is not None}
+
+        pt_kwargs: dict[str, Any] = {
+            "id": c["id"],
+            "vector": dense,
+            "payload": payload,
+        }
+        if sparse is not None:
+            pt_kwargs["sparse_vectors"] = {"sparse": sparse}
+
+        points.append(PointStruct(**pt_kwargs))
+        vector_ids.append(c["id"])
+
+    # upsert in batches — ponytail: sync sequential batch, no parallel until profile says qdrant is bottleneck
+    try:
+        batch_size = 128
+        for i in range(0, len(points), batch_size):
+            batch_pts = points[i : i + batch_size]
+            for attempt in range(3):
+                try:
+                    qdrant.upsert(collection_name=coll, points=batch_pts, wait=True)
+                    break
+                except Exception as e:
+                    if attempt == 2:
+                        raise
+                    wait = 2**attempt
+                    logger.warning("qdrant upsert batch %s failed attempt %s: %s retry %ss", i // batch_size, attempt + 1, e, wait)
+                    time.sleep(wait)
+        logger.info("qdrant push done collection=%s points=%s ref=%s tag=%s", coll, len(points), reference_no, document_tag)
+    except Exception as e:
+        err = f"qdrant upsert failed: {type(e).__name__}: {e}"
+        logger.error(err, exc_info=True)
+        return {"chunks": all_chunks, "chunk_count": len(all_chunks), "vector_ids": [], "status": "failed", "error": err}
+
+    status = "indexed" if len(vector_ids) == len(all_chunks) else "partial"
+    return {"chunks": all_chunks, "chunk_count": len(all_chunks), "vector_ids": vector_ids, "status": status, "error": None}

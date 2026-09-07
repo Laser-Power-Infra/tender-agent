@@ -25,6 +25,11 @@ class IngestionState(TypedDict, total=False):
     page_markdown:str
     page_chunks:list[dict]
 
+    # chunk + vector (chunk_embed_push)
+    chunks:list[dict]
+    chunk_count:int
+    vector_ids:list[str]
+
     # Processing
     status:str
     error:str|None    

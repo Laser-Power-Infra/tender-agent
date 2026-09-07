@@ -86,6 +86,36 @@ class Settings(BaseSettings):
             v = v.strip().strip('"').strip("'").strip()
             return v or None
         return v
+
+    # openai embeddings (dense)
+    openai_api_key: str | None = None
+    embedding_model: str = "text-embedding-3-small"
+    embedding_batch_size: int = 100
+
+    @field_validator("openai_api_key", "embedding_model", mode="before")
+    @classmethod
+    def strip_openai(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        if isinstance(v, str):
+            v = v.strip().strip('"').strip("'").strip()
+            return v or None
+        return v
+
+    # qdrant collection + chunking
+    qdrant_collection: str = "tender_chunks"
+    chunk_size: int = 1000
+    chunk_overlap: int = 200
+
+    @field_validator("qdrant_collection", mode="before")
+    @classmethod
+    def strip_qdrant_collection(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        if isinstance(v, str):
+            v = v.strip().strip('"').strip("'").strip()
+            return v or None
+        return v
         
 
 
