@@ -91,7 +91,8 @@ def parse_single_page(state: dict) -> dict:
 
             if markdown.strip():
                 logger.info("page parsed page_no=%s/%s len=%s ref=%s tag=%s doc=%s source=cache", page_no, total_pages, len(markdown), reference_no, document_tag, document_name)
-                logger.debug("page %s markdown:\n%s", page_no, markdown[:4000])
+                logger.info("page %s markdown:\n%s", page_no, markdown[:4000])
+                logger.info("page %s text:\n%s", page_no, text[:4000])
                 return {"parsed_pages": [{"page_no": page_no, "markdown": markdown, "text": text, "metadata": meta_base, "status": "parsed", "error": None}]}
             else:
                 logger.warning("page %s cache empty len=0 ref=%s tag=%s, fallback to docling single-page", page_no, reference_no, document_tag)
@@ -127,7 +128,8 @@ def parse_single_page(state: dict) -> dict:
         err = None if status == "parsed" else "empty markdown after all fallbacks"
         if status == "parsed":
             logger.info("page parsed page_no=%s/%s len=%s ref=%s tag=%s doc=%s source=convert", page_no, total_pages, len(markdown), reference_no, document_tag, document_name)
-            logger.debug("page %s markdown:\n%s", page_no, markdown[:4000])
+            logger.info("page %s markdown:\n%s", page_no, markdown[:4000])
+            logger.info("page %s text:\n%s", page_no, text[:4000] if 'text' in locals() else markdown[:4000])
         else:
             logger.error("page %s failed empty markdown ref=%s tag=%s url=%s", page_no, reference_no, document_tag, original_url)
 
