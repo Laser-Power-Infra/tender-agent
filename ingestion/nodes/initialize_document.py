@@ -33,12 +33,12 @@ def initialize_document(state: IngestionState) -> dict:
     if not reference_no or not str(reference_no).strip():
         raise ValueError("reference_no is required")
 
-    if not document_tag or not str(document_tag).strip():
-        raise ValueError("document_tag is required")
+    if document_tag is None:
+        document_tag = ""
 
     document_id = str(uuid4())
 
-    working_dir = TEMP_DIR / job_id
+    working_dir = TEMP_DIR / job_id / document_id
     working_dir.mkdir(parents=True, exist_ok=True)
 
     return {
@@ -46,7 +46,7 @@ def initialize_document(state: IngestionState) -> dict:
         "working_dir": str(working_dir),
         "original_url": str(original_url).strip(),
         "reference_no": str(reference_no).strip(),
-        "document_tag": str(document_tag).strip(),
+        "document_tag": str(document_tag).strip() if str(document_tag).strip() else "",
         "document_name": str(document_name).strip() if document_name and str(document_name).strip() else None,
         "current_page": 1,
         "total_pages": 0,

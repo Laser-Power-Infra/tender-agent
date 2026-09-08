@@ -47,15 +47,16 @@ def handle_message(ch, method, properties, body):
         payload = json.loads(body)
         logger.info("Payload parsed: %r", payload)
         job = IngestionJob.model_validate(payload)
-        logger.info("Validated job job_id=%s file_url=%s", job.job_id, job.file_url)
-        logger.info("Invoking graph job_id=%s payload=%r", job.job_id, job.to_state())
-        result = _graph.invoke(job.to_state())
-        logger.info("Graph result job_id=%s status=%s file_path=%s error=%s", job.job_id, result.get("status"), result.get("file_path"), result.get("error"))
-        if result.get("status") == "failed":
-            logger.error("Job %s failed: %s", job.job_id, result.get("error"))
-            _safe_ack_nack(ch, method, ack=False)
-            return
-        logger.info("Job %s done: %s -> %s", job.job_id, result.get("status"), result.get("file_path"))
+        logger.info("Validated job job_id=%s reference_no=%s files=%s", job.job_id, job.reference_no, len(job.files))
+        for state in job.to_file_states():  # ponytail: sequential per-file, parallel fan-out if throughput matters
+            logger.info("Invoking graph job_id=%s payload=%r", job.job_id, state)
+            result = _graph.invoke(state)
+            logger.info("Graph result job_id=%s status=%s file_path=%s error=%s", job.job_id, result.get("status"), result.get("file_path"), result.get("error"))
+            if result.get("status") == "failed":
+                logger.error("Job %s failed file=%s error=%s", job.job_id, state.get("file_url"), result.get("error"))
+                _safe_ack_nack(ch, method, ack=False)
+                return
+            logger.info("Job %s file done: %s -> %s", job.job_id, result.get("status"), result.get("file_path"))
         _safe_ack_nack(ch, method, ack=True)
     except ValidationError as e:
         logger.error("Validation failed body=%r errors=%s", body, e.errors())
