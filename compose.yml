@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: ghcr.io/laser-power-infra/django-worker:${APP_VERSION:-latest}
+    image: tender-agent:latest
     command: uv run python -m worker.ingestion_worker
     restart: unless-stopped
     env_file:
