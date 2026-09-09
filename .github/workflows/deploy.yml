@@ -73,9 +73,9 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
 
-          docker compose pull ingestion-agent
+          docker compose pull ingestion-agent intelligence-agent
 
-          docker compose up -d --scale ingestion-agent=1
+          docker compose up -d --scale ingestion-agent=1 --scale intelligence-agent=1
 
           # Cleanup old ingestion-agent images
           $repo = "ghcr.io/laser-power-infra/tender-agent"
@@ -88,9 +88,6 @@ jobs:
           } else {
               Write-Host "No old tender-agent images to prune. Latest and previous images preserved."
           }
-
-          
-
           docker image prune -f
 
 

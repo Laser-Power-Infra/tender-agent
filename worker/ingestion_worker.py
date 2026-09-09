@@ -8,7 +8,7 @@ from core.config import settings
 from ingestion.graph import build_ingestion_graph
 from worker.job import IngestionJob
 
-QUEUE_NAME="agent:ingestion"
+INGESTION_QUEUE = "agent:ingestion"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s - %(message)s")
 
@@ -97,16 +97,16 @@ def main():
     channel = connection.channel()
 
     channel.queue_declare(
-        queue=QUEUE_NAME,
+        queue=INGESTION_QUEUE,
         durable=True
     )
 
     channel.basic_qos(prefetch_count=1)
 
-    channel.basic_consume(queue=QUEUE_NAME, on_message_callback=handle_message)
+    channel.basic_consume(queue=INGESTION_QUEUE, on_message_callback=handle_message)
 
     logger.info("Connected to RabbitMQ")
-    logger.info("Waititing for jobs on: %s", QUEUE_NAME)
+    logger.info("Waititing for jobs on: %s", INGESTION_QUEUE)
 
     try:
         channel.start_consuming()

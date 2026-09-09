@@ -13,6 +13,16 @@ services:
       - infra
     # ponytail: no depends_on — postgres/qdrant/rabbitmq external at 192.168.1.190, add services when self-hosted
 
+  intelligence-agent:
+    image: "ghcr.io/laser-power-infra/tender-agent"
+    command: uv run python -m worker.intelligence_worker
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    networks:
+      - infra
+    # ponytail: same image as ingestion-agent, separate process; split images when deps diverge
+
 networks:
   infra:
     external: true

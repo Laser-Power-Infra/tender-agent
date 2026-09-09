@@ -109,3 +109,17 @@ class IngestionJob(BaseModel):
             }
             for f in self.files
         ]
+
+
+class IntelligenceJob(BaseModel):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    reference_no: str = Field(validation_alias=AliasChoices("reference_no", "referenceNo"))
+
+    @field_validator("reference_no")
+    @classmethod
+    def check_reference_no(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("referenceNo must be non-empty")
+        return v
