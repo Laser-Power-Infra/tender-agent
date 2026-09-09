@@ -116,6 +116,20 @@ class Settings(BaseSettings):
             v = v.strip().strip('"').strip("'").strip()
             return v or None
         return v
+
+    # reranker (cross-encoder) — ponytail: env-driven, no hardcode in nodes
+    rerank_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+    rerank_device: str = "cpu"
+
+    @field_validator("rerank_model", "rerank_device", mode="before")
+    @classmethod
+    def strip_rerank(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        if isinstance(v, str):
+            v = v.strip().strip('"').strip("'").strip()
+            return v or None
+        return v
         
 
 
