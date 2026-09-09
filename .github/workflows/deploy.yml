@@ -1,0 +1,99 @@
+name: Build and Deploy tender-agent
+on:
+  push:
+    branches:
+      - main  # Change to 'master' if your default branch is master
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-push:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    outputs:
+      short_sha: ${{ steps.vars.outputs.short_sha }}
+      owner_lowercase: ${{ steps.repo_owner.outputs.owner }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Extract Short Commit SHA
+        id: vars
+        run: echo "short_sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Convert Repo Owner to Lowercase (GHCR requirement)
+        id: repo_owner
+        run: echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry (GHCR)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ghcr.io/${{ steps.repo_owner.outputs.owner }}/tender-agent:latest
+            ghcr.io/${{ steps.repo_owner.outputs.owner }}/tender-agent:${{ steps.vars.outputs.short_sha }}
+
+  deploy:
+    name: Deploy to Server
+    needs: build-and-push
+    runs-on: self-hosted
+    steps:
+        # 🟢 Step 1: Checkout the latest repo code on the server runner
+      - name: Checkout Latest Code
+        uses: actions/checkout@v4
+
+      # 🟢 Step 2: Copy the latest docker-compose.yml to D://
+      - name: Sync Latest compose.yml
+        shell: powershell
+        run: |
+          Copy-Item -Path "compose.yml" -Destination "D:/tender-agent/compose.yml" -Force
+          Write-Host "✅ Synced latest compose.yml to D:/tender-agent/"
+
+      - name: Pull and Restart Container
+        shell: powershell
+        working-directory: D:/tender-agent
+        env:
+          APP_VERSION: ${{ needs.build-and-push.outputs.short_sha }}
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          docker compose pull ingestion-agent
+
+          docker compose up -d --scale ingestion-agent=1
+
+          # Cleanup old ingestion-agent images
+          $repo = "ghcr.io/laser-power-infra/ingestion-agent"
+          $allImages = docker images --filter "reference=$repo" --format "{{.ID}}" | Select-Object -Unique
+          $oldImages = $allImages | Select-Object -Skip 2
+
+          if ($oldImages) {
+              Write-Host "Cleaning up old ingestion-agent images: $oldImages"
+              $oldImages | ForEach-Object { docker rmi -f $_ }
+          } else {
+              Write-Host "No old ingestion-agent images to prune. Latest and previous images preserved."
+          }
+
+          
+
+          docker image prune -f
+
+
+        
+
+        

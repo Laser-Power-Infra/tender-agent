@@ -20,6 +20,7 @@ def initialize_document(state: IngestionState) -> dict:
     reference_no = state.get("reference_no")
     document_tag = state.get("document_tag")
     document_name = state.get("document_name")
+    external_document_id = state.get("external_document_id")
 
     if not job_id:
         raise ValueError("job_id is required")
@@ -43,6 +44,7 @@ def initialize_document(state: IngestionState) -> dict:
 
     return {
         "document_id": document_id,
+        "external_document_id": external_document_id,
         "working_dir": str(working_dir),
         "original_url": str(original_url).strip(),
         "reference_no": str(reference_no).strip(),

@@ -1,9 +1,10 @@
 services:
-  worker:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: tender-agent:latest
+  ingestion-agent:
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    # image: tender-agent:latest
+    image: "ghcr.io/laser-power-infra/ingestion-agent"
     command: uv run python -m worker.ingestion_worker
     restart: unless-stopped
     env_file:

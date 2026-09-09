@@ -14,7 +14,29 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 
 logger = logging.getLogger(__name__)
 
-_graph = build_ingestion_graph()  # ponytail: single compiled graph, restart worker if graph code changes
+# ponytail: postgres checkpointer, sync PostgresSaver via from_conn_string; setup once, single instance
+# ponytail: fallback to no checkpointer if DB unavailable or lib missing, worker still runs
+def _init_checkpointer():
+    try:
+        from langgraph.checkpoint.postgres import PostgresSaver
+
+        uri = settings.database_url
+        # normalize postgresql+psycopg:// -> postgresql:// for psycopg driver used by checkpointer
+        if uri.startswith("postgresql+psycopg://"):
+            uri = uri.replace("postgresql+psycopg://", "postgresql://", 1)
+        elif uri.startswith("postgres+psycopg://"):
+            uri = uri.replace("postgres+psycopg://", "postgresql://", 1)
+        # from_conn_string handles autocommit=True, row_factory=dict_row per docs
+        cp = PostgresSaver.from_conn_string(uri)
+        cp.setup()  # ponytail: idempotent migrations, must call once before compile
+        logger.info("Postgres checkpointer ready")
+        return cp
+    except Exception as e:
+        logger.warning("Checkpointer init failed, running without: %s", e)
+        return None
+
+_checkpointer = _init_checkpointer()
+_graph = build_ingestion_graph(checkpointer=_checkpointer)  # ponytail: restart worker if graph code changes
 
 def connect_rabbitmq() -> pika.BlockingConnection:
     url = settings.rabbitmq_url
@@ -50,7 +72,11 @@ def handle_message(ch, method, properties, body):
         logger.info("Validated job job_id=%s reference_no=%s files=%s", job.job_id, job.reference_no, len(job.files))
         for state in job.to_file_states():  # ponytail: sequential per-file, parallel fan-out if throughput matters
             logger.info("Invoking graph job_id=%s payload=%r", job.job_id, state)
-            result = _graph.invoke(state)
+            # ponytail: thread_id = job_id:document_id or external id for resumable checkpoints per doc
+            # ponytail: single thread_id per file, avoids cross-file checkpoint collision
+            tid = f"{job.job_id}:{state.get('external_document_id') or state.get('file_url')}"
+            config = {"configurable": {"thread_id": tid}}
+            result = _graph.invoke(state, config=config) if _checkpointer else _graph.invoke(state)
             logger.info("Graph result job_id=%s status=%s file_path=%s error=%s", job.job_id, result.get("status"), result.get("file_path"), result.get("error"))
             if result.get("status") == "failed":
                 logger.error("Job %s failed file=%s error=%s", job.job_id, state.get("file_url"), result.get("error"))

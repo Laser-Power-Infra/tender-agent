@@ -8,6 +8,7 @@ class IngestionFile(BaseModel):
     filetype: str | None = Field(default=None, validation_alias=AliasChoices("filetype", "fileType", "file_type"))
     fileurl: str = Field(validation_alias=AliasChoices("fileurl", "fileUrl", "file_url"))
     fileTag: str = Field(default="", validation_alias=AliasChoices("fileTag", "file_tag", "filetag"))
+    external_document_id: int | None = Field(default=None, validation_alias=AliasChoices("external_document_id", "externalDocumentId", "external_documentId", "documentId", "document_id"))
 
     @field_validator("fileurl")
     @classmethod
@@ -88,6 +89,7 @@ class IngestionJob(BaseModel):
             "reference_no": self.reference_no,
             "document_tag": f.fileTag,
             "document_name": f.filename,
+            "external_document_id": f.external_document_id,
             "status": "pending",
             "error": None,
         }
@@ -101,6 +103,7 @@ class IngestionJob(BaseModel):
                 "reference_no": self.reference_no,
                 "document_tag": f.fileTag,
                 "document_name": f.filename,
+                "external_document_id": f.external_document_id,
                 "status": "pending",
                 "error": None,
             }

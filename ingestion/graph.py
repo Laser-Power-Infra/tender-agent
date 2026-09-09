@@ -8,6 +8,7 @@ from ingestion.nodes.initialize_document import initialize_document
 from ingestion.nodes.download_document import download_document
 from ingestion.nodes.parse_document import parse_pdf, parse_docx, parse_xlsx, parse_txt
 from ingestion.nodes.chunk_embed_push import chunk_embed_push
+from ingestion.nodes.persist import persist_document
 from ingestion.nodes.cleanup import cleanup
 
 logger = logging.getLogger(__name__)
@@ -38,8 +39,8 @@ def route_by_ext(state: IngestionState) -> str:
     return "parse_pdf"
 
 
-def build_ingestion_graph():
-    logger.info("Building ingestion graph: initialize -> download -> {pdf|docx|xlsx|txt} -> chunk -> cleanup")
+def build_ingestion_graph(checkpointer=None):
+    logger.info("Building ingestion graph: initialize -> download -> {pdf|docx|xlsx|txt} -> chunk+persist -> cleanup checkpointer=%s", bool(checkpointer))
     graph = StateGraph(IngestionState)
 
     graph.add_node("initialize_document", initialize_document)
@@ -49,6 +50,7 @@ def build_ingestion_graph():
     graph.add_node("parse_xlsx", parse_xlsx)
     graph.add_node("parse_txt", parse_txt)
     graph.add_node("chunk_embed_push", chunk_embed_push)
+    graph.add_node("persist_document", persist_document)
     graph.add_node("cleanup", cleanup)
 
     graph.add_edge(START, "initialize_document")
@@ -65,9 +67,11 @@ def build_ingestion_graph():
     )
     for n in ("parse_pdf", "parse_docx", "parse_xlsx", "parse_txt"):
         graph.add_edge(n, "chunk_embed_push")
+        graph.add_edge(n, "persist_document")
     graph.add_edge("chunk_embed_push", "cleanup")
+    graph.add_edge("persist_document", "cleanup")
     graph.add_edge("cleanup", END)
 
-    compiled = graph.compile()
-    logger.info("Ingestion graph compiled")  # ponytail: INFO only, add DEBUG per-node if verbose needed
+    compiled = graph.compile(checkpointer=checkpointer) if checkpointer else graph.compile()
+    logger.info("Ingestion graph compiled checkpointer=%s", bool(checkpointer))  # ponytail: INFO only
     return compiled

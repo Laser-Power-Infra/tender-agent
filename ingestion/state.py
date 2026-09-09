@@ -4,6 +4,7 @@ class IngestionState(TypedDict, total=False):
 
     job_id:str
     document_id:str
+    external_document_id:int|None
     file_url:str
     original_url:str
     reference_no:str
