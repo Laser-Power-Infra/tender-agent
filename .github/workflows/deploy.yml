@@ -78,15 +78,15 @@ jobs:
           docker compose up -d --scale ingestion-agent=1
 
           # Cleanup old ingestion-agent images
-          $repo = "ghcr.io/laser-power-infra/ingestion-agent"
+          $repo = "ghcr.io/laser-power-infra/tender-agent"
           $allImages = docker images --filter "reference=$repo" --format "{{.ID}}" | Select-Object -Unique
           $oldImages = $allImages | Select-Object -Skip 2
 
           if ($oldImages) {
-              Write-Host "Cleaning up old ingestion-agent images: $oldImages"
+              Write-Host "Cleaning up old tender-agent images: $oldImages"
               $oldImages | ForEach-Object { docker rmi -f $_ }
           } else {
-              Write-Host "No old ingestion-agent images to prune. Latest and previous images preserved."
+              Write-Host "No old tender-agent images to prune. Latest and previous images preserved."
           }
 
           
