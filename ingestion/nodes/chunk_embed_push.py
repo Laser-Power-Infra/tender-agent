@@ -6,6 +6,7 @@ from typing import Any
 
 from ingestion.state import IngestionState
 from core.config import settings
+from core.retry import retry_on_429
 from vector.qdrant import ensure_collection, qdrant
 
 logger = logging.getLogger(__name__)
@@ -70,6 +71,11 @@ def _get_sparse_embedder():
         logger.warning("sparse embedder init failed (BM25): %s, pushing dense only", e)
         _sparse_embedder = None
     return _sparse_embedder
+
+
+@retry_on_429(max_retries=5, base=2.0, cap=60.0)
+def _embed_documents_with_retry(embedder, batch_texts):
+    return embedder.embed_documents(batch_texts)
 
 
 # ponytail: table-aware chunking — keep | ... | blocks intact, header repeat when >chunk_size. O(n) scan
@@ -244,7 +250,7 @@ def chunk_embed_push(state: IngestionState) -> dict[str, Any]:
         logger.error(err, exc_info=True)
         return {"status": "failed", "error": err, "chunks": all_chunks, "chunk_count": len(all_chunks), "vector_ids": []}
 
-    # dense embed in batches
+    # dense embed in batches — ponytail: decorator handles 429 exponential backoff, Retry-After, jitter
     texts = [c["text"] for c in all_chunks]
     dense_vectors: list[list[float]] = []
     try:
@@ -252,17 +258,8 @@ def chunk_embed_push(state: IngestionState) -> dict[str, Any]:
         batch = settings.embedding_batch_size or 100
         for i in range(0, len(texts), batch):
             batch_texts = texts[i : i + batch]
-            for attempt in range(3):
-                try:
-                    vecs = embedder.embed_documents(batch_texts)
-                    dense_vectors.extend(vecs)
-                    break
-                except Exception as e:
-                    if attempt == 2:
-                        raise
-                    wait = 2**attempt
-                    logger.warning("embed batch %s failed attempt %s: %s retry in %ss", i // batch, attempt + 1, e, wait)
-                    time.sleep(wait)
+            vecs = _embed_documents_with_retry(embedder, batch_texts)
+            dense_vectors.extend(vecs)
     except Exception as e:
         err = f"dense embedding failed: {type(e).__name__}: {e}"
         logger.error(err, exc_info=True)
