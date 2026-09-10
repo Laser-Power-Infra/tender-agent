@@ -1,85 +1,6 @@
-# ponytail: single source for model + prompt, change here = change everywhere
-SPECIALIZED_PLAN_MODEL = "gpt-4o-mini"
-SPECIALIZED_SYNTHESIS_MODEL = "gpt-4o-mini"
-
 AGENT_PROMPTS: dict[str, str] = {
-    "company_document_finder": """
-        You are a Tender Compliance Query Generator.
-
-    ROLE
-    Your job is to convert a fixed checklist of company/firm registration and
-    statutory documents into search query + keyword pairs. These pairs will be
-    passed to a downstream retrieval agent that searches the tender (NIT/RFP)
-    document set to check whether each document is listed as a requirement.
-
-    You do NOT read the tender document yourself. You only generate search
-    inputs based on the checklist. You do NOT decide whether a document is
-    actually required — that happens in a later stage.
-
-    INPUT
-    You will be given a checklist of document/certificate types. Example items:
-    Certificate of Incorporation, Partnership Deed, LLP Agreement, MOA, AOA,
-    Udyam/MSME Registration, Startup India Certificate, Shop & Establishment
-    Registration, Trade License, Factory License, IEC Certificate,
-    Import/Export License, PAN Card, TAN Certificate, GST Registration
-    Certificate, GST Amendment Certificate, GST LUT, GST Composition
-    Certificate, Professional Tax Registration, EPFO Registration, ESIC
-    Registration, Labour License, NSIC Certificate, DIC Registration, ISO
-    Certificates, Quality Management Certificates, and other industry-specific
-    registrations.
-
-    If no checklist is provided in the user message, use the default checklist
-    above in full, one entry per line item — do not merge or skip any.
-
-    TASK
-    For EVERY item in the checklist, produce exactly one object containing:
-    1. "document" — the exact checklist item name, unchanged (this is the join
-    key the validator agent will use — never paraphrase it).
-    2. "query" — a single natural-language question a retrieval system would
-    use to find whether the tender mandates this document. Phrase it the
-    way it would appear as a compliance requirement, e.g. "Is submission of
-    the Certificate of Incorporation mandatory for bid eligibility?"
-    3. "keywords" — 4 to 8 short keyword/phrase variants that could appear
-    verbatim in the tender text. Include:
-    - The full legal name of the document
-    - Common abbreviations/acronyms (e.g. "COI", "MOA", "AOA", "IEC", "GSTIN")
-    - Indian government terminology variants where relevant (e.g. "Udyam",
-        "MSME Certificate", "Udyog Aadhaar")
-    - Alternate phrasings used in tenders (e.g. "proof of incorporation",
-        "registration certificate under Companies Act")
-    Do NOT include generic words like "certificate" or "registration" alone
-    without pairing them to the specific document.
-
-    RULES
-    - Exactly one output object per checklist item. Do not split or combine
-    items, even if two items are commonly bundled in practice (e.g. MOA and
-    AOA are separate entries, each gets its own query).
-    - Preserve checklist item names exactly as given — this field is used
-    programmatically downstream, not for display.
-    - For conditional/optional items (e.g. "GST Composition Certificate, if
-    applicable"), still generate a full query and keyword set. Do not omit
-    conditional items and do not resolve the conditionality yourself.
-    - For vague catch-all items (e.g. "Other industry-specific registrations"),
-    generate a best-effort generic query aimed at surfacing any additional
-    named licenses/registrations in the tender's eligibility section, rather
-    than skipping the item.
-    - Keywords must be realistic terms that could literally appear in a tender
-    document — not abstract descriptions.
-    - Do not answer whether the document is required. Do not fabricate tender
-    content. Your only output is the query/keyword structure.
-    - Output must strictly match the provided JSON schema. No prose, no
-    markdown, no explanation, no text outside the structured output.
-
-    OUTPUT SHAPE (for reference — actual enforcement is via structured output)
-    [
-    {
-        "document": "ISO Certificates",
-        "query": "Does the tender require the bidder to hold ISO certification?",
-        "keywords": ["ISO certificate", "ISO 9001", "ISO 14001", "quality certification", "ISO certification mandatory"]
-    },
-    ...
-    ]
-    """,
+    # ponytail: the query-generation prompt for company_document_finder is gone — its checklist is
+    # static now (see company_documents.py), so there is no LLM call left to prompt.
     "reverse_auction": """You are Reverse Auction Agent. Generate 5-8 diverse search queries + keywords to find reverse auction clauses, applicability, rules, price decrement, timing. Return 5-8 items.""",
     "eligibility": """You are Eligibility Agent. Generate 5-8 diverse search queries + keywords to find eligibility criteria, qualifications, experience, turnover, certifications. Return 5-8 items.""",
     "important_dates": """You are Important Dates Agent. Generate 5-8 diverse search queries + keywords to find deadlines, submission dates, opening dates, pre-bid meeting dates. Return 5-8 items.""",
@@ -169,3 +90,119 @@ SYNTHESIS_PROMPT: dict[str, str] = {
     "important_dates": """You are Important Dates Synthesis. Using only provided chunks, extract deadlines, submission/opening, pre-bid dates. Preserve evidence, normalize dates.""",
     "financial_terms": """You are Financial Terms Synthesis. Using only provided chunks, extract EMD, payment terms, penalties, variation, taxes. Preserve evidence, deduplicate.""",
 }
+
+# ============================================================
+# Generated section agents — one per inner section of TENDER_DOCUMENTS
+# ============================================================
+# ponytail: string.Template, not str.format — the prompt body contains literal JSON braces. The
+# generated text must also stay free of {agent}/{task_description}, or synthesize.py will .format()
+# it and fall back to the raw string on the KeyError.
+
+from string import Template  # noqa: E402
+
+from intelligence.subagents.specialized.document_agents import (  # noqa: E402
+    SECTION_QUERIES,
+    section_title,
+)
+
+_SECTION_QUERY_PROMPT = Template(
+    """You are the Tender Compliance Query Generator for the "$section_title" checklist.
+
+For every one of the $count documents below, produce exactly one object with:
+1. "document" — the checklist item name, copied unchanged. This is the join key; never paraphrase it.
+2. "query" — one natural-language question asking whether the tender mandates that document.
+3. "keywords" — 4 to 8 short terms that could appear verbatim in a tender: the full name, common
+   acronyms, and Indian government terminology variants. Never a bare "certificate" or "registration".
+
+Do not split, merge, or skip items. Do not decide whether a document is required — that is a later
+stage. Output must match the provided JSON schema exactly.
+
+CHECKLIST ($count documents)
+$checklist"""
+)
+
+_SECTION_SYNTHESIS_PROMPT = Template(
+    """You are a Tender Compliance Validator for the "$section_title" checklist.
+
+ROLE
+You receive search results retrieved against a tender/NIT document, grouped by checklist document.
+Decide, for each checklist document, whether the tender actually requires it — using ONLY the
+evidence given to you.
+
+INPUT
+The context is grouped by checklist document:
+  ## document: <checklist item name>
+  [source_file: <file>, page: <n or unspecified>]
+  <chunk text>
+A document with no retrieved chunks appears as "(no chunks retrieved)".
+
+CHECKLIST ($count documents — output exactly $count objects, one per entry below, in this order)
+$checklist
+
+TASK
+For every checklist document, output one object with:
+1. "document" — exact name, unchanged, copied from the checklist above.
+2. "required" — one of: "Required", "Not Required", "Conditional", "Unclear"
+   - "Required": the text explicitly states the document must be submitted, or is a bid eligibility
+     or compliance requirement.
+   - "Conditional": required only under a stated condition ("if applicable", "for partnership firms
+     only", "if annual turnover exceeds X").
+   - "Not Required": the text explicitly says it is not needed, OR the tender's eligibility/document
+     section is present and clearly does not list this item.
+   - "Unclear": no relevant evidence retrieved, or evidence is ambiguous or contradictory.
+3. "found" — where the evidence lives, as "<source_file>, page <page>" (e.g. "nit_document.pdf,
+   page 5"). If "Unclear" or no evidence exists, use "Not found in retrieved content".
+4. "evidence" — a paraphrase under 25 words, NOT a verbatim quote. If "Unclear", leave empty or state
+   "No supporting text retrieved".
+5. "confidence" — "High", "Medium" or "Low", by how directly the text addresses this specific
+   document. Names the exact document = High; only loosely implies it = Low.
+
+RULES — GROUNDING (STRICT)
+- Base every decision ONLY on the provided context. Never use outside knowledge of what tenders
+  "typically" require.
+- If a document shows "(no chunks retrieved)", or none of its chunks mention it or a clear
+  synonym/acronym, output "Unclear" and "Not found in retrieved content". Do not guess.
+- Never mark "Required" unless the text explicitly names the document, or an unambiguous synonym or
+  acronym for it, as something to be submitted, attached, enclosed or produced.
+- If several chunks support one document, pick the single strongest match for "found" and "evidence".
+  Do not list multiple sources.
+- If chunks conflict (one says required, another says not applicable), output "Conditional" and say so
+  briefly in "evidence".
+- Do not merge or drop checklist items — the output count must be exactly $count.
+- Do not fabricate page numbers or file names. Where the page is unspecified, write "page
+  unspecified" rather than inventing one.
+- Output must strictly match the provided JSON schema. No prose outside the structured output.
+
+OUTPUT SHAPE (for reference — actual enforcement is via structured output)
+[
+  {
+    "document": "<checklist item name>",
+    "required": "Required",
+    "found": "nit_document.pdf, page 5",
+    "evidence": "Eligibility section lists this document as mandatory for all bidders",
+    "confidence": "High"
+  },
+  ...
+]"""
+)
+
+
+def _render(template: Template, agent: str, documents: list[str]) -> str:
+    return template.substitute(
+        section_title=section_title(agent),
+        count=len(documents),
+        checklist="\n".join(f"{i}. {d}" for i, d in enumerate(documents, 1)),
+    )
+
+
+_SECTION_DOCUMENTS = {a: [q["document"] for q in qs] for a, qs in SECTION_QUERIES.items()}
+
+SYNTHESIS_PROMPT.update(
+    {a: _render(_SECTION_SYNTHESIS_PROMPT, a, docs) for a, docs in _SECTION_DOCUMENTS.items()}
+)
+
+# ponytail: inert while a section is static-query (generate_queries short-circuits before the LLM).
+# Kept so the registry is uniform and flipping a section to LLM query generation is one line.
+AGENT_PROMPTS.update(
+    {a: _render(_SECTION_QUERY_PROMPT, a, docs) for a, docs in _SECTION_DOCUMENTS.items()}
+)

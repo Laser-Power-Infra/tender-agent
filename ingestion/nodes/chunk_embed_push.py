@@ -6,7 +6,6 @@ from typing import Any
 
 from ingestion.state import IngestionState
 from core.config import settings
-from core.retry import retry_on_429
 from vector.qdrant import ensure_collection, qdrant
 
 logger = logging.getLogger(__name__)
@@ -21,23 +20,15 @@ def _get_splitter():
     global _splitter
     if _splitter is not None:
         return _splitter
-    # ponytail: RecursiveCharacterTextSplitter default, no MarkdownHeader splitter until eval proves need
-    try:
-        from langchain_text_splitters import RecursiveCharacterTextSplitter
+    # ponytail: RecursiveCharacterTextSplitter default, no MarkdownHeader splitter until eval proves need.
+    # the old langchain fallback branch is gone with the langchain umbrella dep — this package is declared.
+    from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-        _splitter = RecursiveCharacterTextSplitter(
-            chunk_size=settings.chunk_size,
-            chunk_overlap=settings.chunk_overlap,
-            separators=["\n\n", "\n", " ", ""],
-        )
-    except ImportError:
-        from langchain.text_splitter import RecursiveCharacterTextSplitter  # type: ignore
-
-        _splitter = RecursiveCharacterTextSplitter(
-            chunk_size=settings.chunk_size,
-            chunk_overlap=settings.chunk_overlap,
-            separators=["\n\n", "\n", " ", ""],
-        )
+    _splitter = RecursiveCharacterTextSplitter(
+        chunk_size=settings.chunk_size,
+        chunk_overlap=settings.chunk_overlap,
+        separators=["\n\n", "\n", " ", ""],
+    )
     return _splitter
 
 
@@ -53,7 +44,8 @@ def _get_dense_embedder():
     _dense_embedder = OpenAIEmbeddings(
         model=settings.embedding_model,
         api_key=api_key,
-        # ponytail: default retry, no custom backoff until rate-limit hit observed
+        # ponytail: SDK retries 429 with backoff + Retry-After, no hand-rolled decorator
+        max_retries=5,
     )
     return _dense_embedder
 
@@ -71,11 +63,6 @@ def _get_sparse_embedder():
         logger.warning("sparse embedder init failed (BM25): %s, pushing dense only", e)
         _sparse_embedder = None
     return _sparse_embedder
-
-
-@retry_on_429(max_retries=5, base=2.0, cap=60.0)
-def _embed_documents_with_retry(embedder, batch_texts):
-    return embedder.embed_documents(batch_texts)
 
 
 # ponytail: table-aware chunking — keep | ... | blocks intact, header repeat when >chunk_size. O(n) scan
@@ -250,7 +237,7 @@ def chunk_embed_push(state: IngestionState) -> dict[str, Any]:
         logger.error(err, exc_info=True)
         return {"status": "failed", "error": err, "chunks": all_chunks, "chunk_count": len(all_chunks), "vector_ids": []}
 
-    # dense embed in batches — ponytail: decorator handles 429 exponential backoff, Retry-After, jitter
+    # dense embed in batches — ponytail: OpenAI SDK handles 429 backoff, Retry-After, jitter via max_retries
     texts = [c["text"] for c in all_chunks]
     dense_vectors: list[list[float]] = []
     try:
@@ -258,7 +245,7 @@ def chunk_embed_push(state: IngestionState) -> dict[str, Any]:
         batch = settings.embedding_batch_size or 100
         for i in range(0, len(texts), batch):
             batch_texts = texts[i : i + batch]
-            vecs = _embed_documents_with_retry(embedder, batch_texts)
+            vecs = embedder.embed_documents(batch_texts)
             dense_vectors.extend(vecs)
     except Exception as e:
         err = f"dense embedding failed: {type(e).__name__}: {e}"

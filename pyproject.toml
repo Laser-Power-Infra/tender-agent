@@ -15,13 +15,11 @@ dependencies = [
     "google-auth>=2.57.1",
     "google-auth-oauthlib>=1.4.1",
     "httpx>=0.28.1",
-    "langchain>=1.3.18",
     "langchain-openai>=1.6.0",
     "langchain-text-splitters>=1.1.2",
     "langfuse>=4.15.1",
     "langgraph>=1.2.11",
     "langgraph-checkpoint-postgres>=2.0.15",
-    "openai>=3.8.0",
     "openpyxl>=3.1.5",
     "pika>=1.4.4",
     "psycopg[binary]>=3.3.5",
@@ -30,7 +28,22 @@ dependencies = [
     "qdrant-client>=1.19.0",
     "sentence-transformers>=6.0.1",
     "sqlmodel>=0.0.42",
+    # transitive via docling + sentence-transformers, declared so the CPU index below binds to them
+    "torch>=2.0",
+    "torchvision>=0.15",
 ]
 
 [tool.uv]
 package = false
+
+# ponytail: RERANK_DEVICE is cpu and nothing here ever touches a GPU, so take the CPU wheels.
+# the default index drags in nvidia-cublas/cudnn/nccl/triton — GBs of image for code that never runs.
+# switch to a cuXXX index here if a GPU host ever appears.
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu" }]
+torchvision = [{ index = "pytorch-cpu" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true

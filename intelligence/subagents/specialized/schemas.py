@@ -2,6 +2,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from intelligence.subagents.specialized.document_agents import DOCUMENT_AGENTS
+
 
 class DocumentItem(BaseModel):
     name: str = Field(description="document name")
@@ -28,10 +30,6 @@ class BaseSynthesizeDocumentItem(BaseModel):
 
 class BaseSynthesizeDocumentOutput(BaseModel):
     results: list[BaseSynthesizeDocumentItem] = Field(description="array of synthesize document items")
-
-
-class CompanyDocItem(BaseSynthesizeDocumentItem):
-    pass
 
 
 class CompanyComplianceOutput(BaseSynthesizeDocumentOutput):
@@ -63,11 +61,14 @@ class FinancialTermsOutput(BaseModel):
     summary: str = Field(default="", description="concise summary")
 
 
-# ponytail: single source for output schema, agent -> model, like AGENT_PROMPTS
+# ponytail: single source for output schema, agent -> model, like AGENT_PROMPTS.
+# The 52 section agents all answer the same question, so they share one model — an empty subclass per
+# section would be 52 names for one JSON schema. Give a section its own class when it needs a field.
 AGENT_OUTPUT_MODELS: dict[str, type[BaseModel]] = {
     "company_document_finder": CompanyComplianceOutput,
     "reverse_auction": ReverseAuctionOutput,
     "eligibility": EligibilityOutput,
     "important_dates": ImportantDatesOutput,
     "financial_terms": FinancialTermsOutput,
+    **{a: BaseSynthesizeDocumentOutput for a in DOCUMENT_AGENTS},
 }

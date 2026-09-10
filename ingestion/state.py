@@ -14,7 +14,6 @@ class IngestionState(TypedDict, total=False):
     #local document
     working_dir:str
     file_path:str
-    doc_cache:str|None
 
 
     #page tracking

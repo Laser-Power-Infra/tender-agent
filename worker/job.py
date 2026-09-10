@@ -1,3 +1,5 @@
+import re
+
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 
 
@@ -80,20 +82,6 @@ class IngestionJob(BaseModel):
             raise ValueError("files must be non-empty")
         return v
 
-    def to_state(self) -> dict:
-        f = self.files[0]
-        return {
-            "job_id": self.job_id,
-            "file_url": f.fileurl,
-            "original_url": f.fileurl,
-            "reference_no": self.reference_no,
-            "document_tag": f.fileTag,
-            "document_name": f.filename,
-            "external_document_id": f.external_document_id,
-            "status": "pending",
-            "error": None,
-        }
-
     def to_file_states(self) -> list[dict]:
         return [
             {
@@ -115,6 +103,8 @@ class IntelligenceJob(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
     reference_no: str = Field(validation_alias=AliasChoices("reference_no", "referenceNo"))
+    # "gem" | "non_gem" | "" — "" means unknown and runs the common sections only
+    tender_type: str = Field(default="", validation_alias=AliasChoices("tender_type", "tenderType", "type"))
 
     @field_validator("reference_no")
     @classmethod
@@ -123,3 +113,18 @@ class IntelligenceJob(BaseModel):
         if not v:
             raise ValueError("referenceNo must be non-empty")
         return v
+
+    @field_validator("tender_type", mode="before")
+    @classmethod
+    def normalize_tender_type(cls, v: str | None) -> str:
+        """Absorb GeM / gem_only / NON-GEM / nonGem. Never raises.
+
+        An unknown value must not nack the job: the 39 common sections are correct for either bucket,
+        so a bad type costs coverage, while a ValidationError costs the whole analysis.
+        """
+        s = re.sub(r"[^a-z]", "", str(v or "").lower())
+        if s in ("gem", "gemonly"):
+            return "gem"
+        if s in ("nongem", "nongemonly"):
+            return "non_gem"
+        return ""

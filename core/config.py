@@ -71,66 +71,42 @@ class Settings(BaseSettings):
     google_oauth_refresh_token: str | None = None
     google_oauth_token_uri: str = "https://oauth2.googleapis.com/token"
 
-    @field_validator(
-        "google_oauth_client_id",
-        "google_oauth_client_secret",
-        "google_oauth_refresh_token",
-        "google_oauth_token_uri",
-        mode="before",
-    )
-    @classmethod
-    def strip_google_oauth(cls, v: str | None) -> str | None:
-        if v is None:
-            return None
-        if isinstance(v, str):
-            v = v.strip().strip('"').strip("'").strip()
-            return v or None
-        return v
-
     # openai embeddings (dense)
     openai_api_key: str | None = None
     embedding_model: str = "text-embedding-3-small"
     embedding_batch_size: int = 100
-
-    @field_validator("openai_api_key", "embedding_model", mode="before")
-    @classmethod
-    def strip_openai(cls, v: str | None) -> str | None:
-        if v is None:
-            return None
-        if isinstance(v, str):
-            v = v.strip().strip('"').strip("'").strip()
-            return v or None
-        return v
 
     # qdrant collection + chunking
     qdrant_collection: str = "tender_chunks"
     chunk_size: int = 1000
     chunk_overlap: int = 200
 
-    @field_validator("qdrant_collection", mode="before")
-    @classmethod
-    def strip_qdrant_collection(cls, v: str | None) -> str | None:
-        if v is None:
-            return None
-        if isinstance(v, str):
-            v = v.strip().strip('"').strip("'").strip()
-            return v or None
-        return v
-
     # reranker (cross-encoder) — ponytail: env-driven, no hardcode in nodes
     rerank_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
     rerank_device: str = "cpu"
 
-    @field_validator("rerank_model", "rerank_device", mode="before")
+    # chat llm — ponytail: one knob for every node, was hardcoded gpt-4o-mini in six files
+    chat_model: str = "gpt-4o-mini"
+
+    # ponytail: one strip validator for every optional string, was the same four lines x4
+    @field_validator(
+        "google_oauth_client_id",
+        "google_oauth_client_secret",
+        "google_oauth_refresh_token",
+        "google_oauth_token_uri",
+        "openai_api_key",
+        "embedding_model",
+        "qdrant_collection",
+        "rerank_model",
+        "rerank_device",
+        "chat_model",
+        mode="before",
+    )
     @classmethod
-    def strip_rerank(cls, v: str | None) -> str | None:
-        if v is None:
-            return None
+    def strip_quoted(cls, v: str | None) -> str | None:
         if isinstance(v, str):
-            v = v.strip().strip('"').strip("'").strip()
-            return v or None
+            return v.strip().strip('"').strip("'").strip() or None
         return v
-        
 
 
 settings = Settings()  # type: ignore[call-arg]

@@ -1,5 +1,6 @@
 .git
 .gitignore
+.github
 .venv
 venv
 __pycache__
@@ -13,4 +14,5 @@ __pycache__
 .env.example
 *.log
 tmp
-
+docs
+test_*.py

@@ -1,4 +1,5 @@
 import logging
+import threading
 
 from sentence_transformers import CrossEncoder
 
@@ -7,19 +8,30 @@ from intelligence.subagents.search.state import SearchState
 
 logger = logging.getLogger(__name__)
 
-# ponytail: singleton CrossEncoder, lazy load on first predict; cpu default via settings.rerank_device
+# ponytail: singleton CrossEncoder, lazy load on first predict; cpu default via settings.rerank_device.
+# locked because searches now run in parallel — an unlocked race loads the model twice.
 _model = None
+_lock = threading.Lock()
 
 
 def _get_model():
     global _model
     if _model is not None:
         return _model
-    # ponytail: model/device from settings (env RERANK_MODEL/RERANK_DEVICE), no hardcode in node
-    model_name = settings.rerank_model
-    device = settings.rerank_device
-    _model = CrossEncoder(model_name, device=device, max_length=512)
-    logger.info("CrossEncoder loaded model=%s device=%s", model_name, device)
+    with _lock:
+        if _model is None:
+            # ponytail: model/device from settings (env RERANK_MODEL/RERANK_DEVICE), no hardcode in node
+            model_name = settings.rerank_model
+            device = settings.rerank_device
+            if device == "cpu":
+                # ponytail: ~32 predict() calls run concurrently, each otherwise sizing its intra-op
+                # pool to the core count — pure oversubscription thrash. Identical scores, less thrash.
+                # Process-local, so the ingestion container's docling threads are untouched.
+                import torch
+
+                torch.set_num_threads(1)
+            _model = CrossEncoder(model_name, device=device, max_length=512)
+            logger.info("CrossEncoder loaded model=%s device=%s", model_name, device)
     return _model
 
 

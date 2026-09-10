@@ -1,49 +1,37 @@
 import logging
 
-from langchain_openai import ChatOpenAI
-
-from core.config import settings
-from intelligence.subagents.specialized.prompts import AGENT_PROMPTS, SPECIALIZED_PLAN_MODEL
-from intelligence.subagents.specialized.query_schemas import AGENT_QUERY_MODELS, DEFAULT_QUERY_MODEL
+from intelligence.llm import get_llm
+from intelligence.subagents.specialized.document_agents import STATIC_QUERIES
+from intelligence.subagents.specialized.prompts import AGENT_PROMPTS
+from intelligence.subagents.specialized.query_schemas import QueryPairs
 from intelligence.subagents.specialized.state import SpecializedState
 
 logger = logging.getLogger(__name__)
-
-
-_llm = None
-
-
-def _get_llm():
-    global _llm
-    if _llm is not None:
-        return _llm
-    api_key = (settings.openai_api_key or "").strip() if settings.openai_api_key else ""
-    if not api_key:
-        raise ValueError("OPENAI_API_KEY missing")
-    # ponytail: model constant from prompts, change one place
-    _llm = ChatOpenAI(model=SPECIALIZED_PLAN_MODEL, api_key=api_key, temperature=0)
-    return _llm
 
 
 def generate_queries(state: SpecializedState) -> dict:
     reference_no = (state.get("reference_no") or "").strip()
     task = state.get("task") or {}
     agent = (state.get("agent") or task.get("agent") or "").strip()
-    system_prompt = (state.get("system_prompt") or AGENT_PROMPTS.get(agent) or "").strip()
+    system_prompt = (AGENT_PROMPTS.get(agent) or "").strip()
 
     if not reference_no:
         err = "reference_no required"
         logger.error(err)
         return {"query_pairs": [], "status": "failed", "error": err}
+
+    static = STATIC_QUERIES.get(agent)
+    if static:
+        logger.info("generate_queries static agent=%s ref=%s items=%s", agent, reference_no, len(static))
+        return {"query_pairs": [dict(item) for item in static], "status": "planned", "error": None}
+
     if not system_prompt:
         system_prompt = "You are tender research planner. Generate 5-10 query+keyword pairs for the task."
 
     task_desc = task.get("description") or task.get("task_id") or agent
-    # ponytail: per-agent query model, agent type -> proper schema
-    QueryModel = AGENT_QUERY_MODELS.get(agent, DEFAULT_QUERY_MODEL)
     try:
-        llm = _get_llm()
-        structured = llm.with_structured_output(QueryModel)
+        llm = get_llm()
+        structured = llm.with_structured_output(QueryPairs)
         result = structured.invoke(
             [
                 ("system", system_prompt),
