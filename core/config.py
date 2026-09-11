@@ -86,7 +86,7 @@ class Settings(BaseSettings):
     rerank_device: str = "cpu"
 
     # chat llm — ponytail: one knob for every node, was hardcoded gpt-4o-mini in six files
-    chat_model: str = "gpt-4o-mini"
+    chat_model: str = "gpt-5-mini"
 
     # ponytail: one strip validator for every optional string, was the same four lines x4
     @field_validator(
