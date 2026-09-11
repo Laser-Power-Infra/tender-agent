@@ -11,10 +11,16 @@ from intelligence.state import IntelligenceState
 
 logger = logging.getLogger(__name__)
 
-# ponytail: tasks are independent, so bound the fan-out by what Qdrant/OpenAI tolerate, not by the
-# checklist length. 8 x execute_search's 4 = the same ~32 in-flight searches as the old 5 x 8, but
-# 8 sections can overlap their synthesis call instead of 5 — with 47 tasks that is 6 waves, not 10.
-_TASK_CONCURRENCY = 8
+# ponytail: serial run, was 8; keep guard but cap 1
+_TASK_CONCURRENCY = 1
+
+
+def route_start(state: IntelligenceState):
+    """Skip LLM analysis when user_query missing — run inbuilt checklist only."""
+    if (state.get("user_query") or "").strip():
+        return "analyze_request"
+    logger.info("user_query missing, skip analyze_request ref=%s", state.get("reference_no") or "")
+    return "create_checklist"
 
 
 def fan_out_tasks(state: IntelligenceState):
@@ -37,7 +43,7 @@ def build_intelligence_graph(checkpointer=None):
     graph.add_node("create_checklist", create_checklist)
     graph.add_node("run_task", run_task)
     graph.add_node("synthesize_final_result", synthesize_final_result)
-    graph.add_edge(START, "analyze_request")
+    graph.add_conditional_edges(START, route_start, ["analyze_request", "create_checklist"])
     graph.add_edge("analyze_request", "create_checklist")
     graph.add_conditional_edges("create_checklist", fan_out_tasks, ["run_task", "synthesize_final_result"])
     graph.add_edge("run_task", "synthesize_final_result")

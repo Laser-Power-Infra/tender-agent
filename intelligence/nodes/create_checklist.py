@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 from intelligence.llm import get_llm
 from intelligence.state import IntelligenceState
+from intelligence.predefined_checklist import get_predefined_checklist
 from intelligence.subagents.specialized.document_agents import (
     STATIC_QUERIES,
     agents_for_tender_type,
@@ -83,6 +84,16 @@ def _analytical_tasks(parsed: dict, reference_no: str, checklist: list, seen: se
 
 
 def create_checklist(state: IntelligenceState) -> dict:
+    # ponytail: inbuilt path — user_query missing, no LLM, dict import
+    if not (state.get("user_query") or "").strip():
+        tender_type = (state.get("tender_type") or "").strip()
+        reference_no = (state.get("reference_no") or "").strip()
+        checklist = get_predefined_checklist(tender_type)
+        logger.info("create_checklist inbuilt ref=%s type=%r tasks=%s", reference_no, tender_type, len(checklist))
+        if not checklist:
+            return {"checklist": [], "errors": [{"node": "create_checklist", "error": "predefined checklist empty"}]}
+        return {"checklist": checklist, "errors": []}
+
     parsed = state.get("parsed_request") or {}
     reference_no = (state.get("reference_no") or "").strip()
     tender_type = state.get("tender_type") or ""
