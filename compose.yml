@@ -5,23 +5,33 @@ services:
     #   dockerfile: Dockerfile
     # image: tender-agent:latest
     image: "ghcr.io/laser-power-infra/tender-agent"
-    command: uv run python -m worker.ingestion_worker
+    # ponytail: PATH points into the venv, `uv run` only re-validated the lock on every start
+    command: python -m worker.ingestion_worker
     restart: unless-stopped
     env_file:
       - .env.production
+    volumes:
+      # ponytail: docling/HuggingFace weights survive a redeploy instead of downloading on first job
+      - model-cache:/models
     networks:
       - infra
     # ponytail: no depends_on — postgres/qdrant/rabbitmq external at 192.168.1.190, add services when self-hosted
 
   intelligence-agent:
     image: "ghcr.io/laser-power-infra/tender-agent"
-    command: uv run python -m worker.intelligence_worker
+    command: python -m worker.intelligence_worker
     restart: unless-stopped
     env_file:
       - .env.production
+    volumes:
+      # shared with ingestion-agent: same image, same weights, one download
+      - model-cache:/models
     networks:
       - infra
     # ponytail: same image as ingestion-agent, separate process; split images when deps diverge
+
+volumes:
+  model-cache:
 
 networks:
   infra:

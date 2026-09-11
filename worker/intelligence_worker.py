@@ -44,8 +44,10 @@ def handle_message(ch, method, properties, body):
         payload = json.loads(body)
         logger.info("Payload parsed: %r", payload)
         job = IntelligenceJob.model_validate(payload)
-        logger.info("Validated job reference_no=%s", job.reference_no)
-        # ponytail: graph not built yet, stub ack; wire intelligence graph invoke when ready
+        logger.info("Validated job reference_no=%s tender_type=%r", job.reference_no, job.tender_type)
+        # ponytail: graph not built yet, stub ack; wire intelligence graph invoke when ready.
+        # the graph input must carry {"reference_no": ..., "tender_type": job.tender_type} — tender_type
+        # is what routes which document sections run (see document_agents.agents_for_tender_type).
         logger.info("Intelligence job done reference_no=%s (stub)", job.reference_no)
         _safe_ack_nack(ch, method, ack=True)
     except ValidationError as e:

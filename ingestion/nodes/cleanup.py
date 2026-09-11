@@ -10,7 +10,6 @@ logger = logging.getLogger(__name__)
 def cleanup(state: IngestionState) -> dict:
     # ponytail: best-effort unlink only, no rmtree until disk pressure proves need. rmdir only if empty (shared job_id dir)
     file_path = state.get("file_path")
-    doc_cache = state.get("doc_cache")
     working_dir = state.get("working_dir")
 
     try:
@@ -43,7 +42,6 @@ def cleanup(state: IngestionState) -> dict:
             return False
 
     removed_file = _safe_unlink(file_path)
-    removed_cache = _safe_unlink(doc_cache)
 
     # try remove working_dir only if empty and inside temp_dir
     if working_dir:
@@ -65,7 +63,7 @@ def cleanup(state: IngestionState) -> dict:
         except Exception as e:
             logger.warning("cleanup working_dir check failed wd=%s error=%s", working_dir, e)
 
-    if not removed_file and not removed_cache:
-        logger.info("cleanup nothing to remove file_path=%s doc_cache=%s", file_path, doc_cache)
+    if not removed_file:
+        logger.info("cleanup nothing to remove file_path=%s", file_path)
 
     return {}

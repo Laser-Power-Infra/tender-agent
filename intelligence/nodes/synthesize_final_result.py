@@ -2,9 +2,8 @@ import json
 import logging
 
 from pydantic import BaseModel, Field
-from langchain_openai import ChatOpenAI
 
-from core.config import settings
+from intelligence.llm import get_llm
 from intelligence.state import IntelligenceState
 
 logger = logging.getLogger(__name__)
@@ -28,22 +27,48 @@ Rules:
 class FinalResponse(BaseModel):
     tender_id: str = Field(description="tender reference number")
     summary: str = Field(description="2-3 sentence summary of findings")
-    sections: dict = Field(description="keyed by agent e.g. company_document_finder, reverse_auction with their result")
+    sections: dict = Field(description="keyed by task, each holding that agent's result")
     evidence: list[dict] = Field(default_factory=list, description="key evidence items with source")
 
-# ponytail: single LLM instance
-_llm = None
 
-def _get_llm():
-    global _llm
-    if _llm is not None:
-        return _llm
-    api_key = (settings.openai_api_key or "").strip() if settings.openai_api_key else ""
-    if not api_key:
-        raise ValueError("OPENAI_API_KEY missing (set in .env)")
-    # ponytail: gpt-4o-mini cheapest, upgrade when quality needs prove
-    _llm = ChatOpenAI(model="gpt-4o-mini", api_key=api_key, temperature=0)
-    return _llm
+# per-agent guard, only trips on a pathological result — the raw chunk text is already gone
+_MAX_AGENT_CHARS = 6000
+
+
+def _drop_unclear(result):
+    """Replace a document section's "Unclear" rows with a count.
+
+    ponytail: a 25-document section typically returns mostly "Unclear". Across ~47 sections that is
+    ~280k chars of nothing in one prompt. The final report only needs what the tender actually asks
+    for; the complete per-section detail stays in agent_results and the checkpointer.
+    """
+    rows = (result or {}).get("results")
+    if not isinstance(rows, list):
+        return result
+    kept = [r for r in rows if (r or {}).get("required") != "Unclear"]
+    return {"results": kept, "unclear_count": len(rows) - len(kept)}
+
+
+def _agent_blocks(agent_results: dict) -> str:
+    """One labeled JSON block per task.
+
+    Drops `sources`: it is raw Qdrant chunk text, tens of thousands of chars across five agents,
+    and the spec says synthesis sees structured agent results only. Capping each block separately
+    means a long result truncates itself, never the agents that follow it.
+    """
+    blocks = []
+    for task_id, envelope in agent_results.items():
+        envelope = envelope or {}
+        trimmed = {k: envelope.get(k) for k in ("agent", "status", "result", "error") if envelope.get(k) is not None}
+        if "result" in trimmed:
+            trimmed["result"] = _drop_unclear(trimmed["result"])
+        body = json.dumps(trimmed, ensure_ascii=False)
+        if len(body) > _MAX_AGENT_CHARS:
+            logger.warning("synthesis input truncated task_id=%s len=%s cap=%s", task_id, len(body), _MAX_AGENT_CHARS)
+            body = body[:_MAX_AGENT_CHARS] + " ...[truncated]"
+        blocks.append(f"### {task_id}\n{body}")
+    return "\n\n".join(blocks)
+
 
 def synthesize_final_result(state: IntelligenceState) -> dict:
     reference_no = (state.get("reference_no") or "").strip()
@@ -56,9 +81,13 @@ def synthesize_final_result(state: IntelligenceState) -> dict:
         return {"final_response": {"tender_id": reference_no, "summary": err, "sections": {}, "evidence": []}, "errors": [{"node": "synthesize_final_result", "error": err}]}
 
     try:
-        llm = _get_llm()
+        llm = get_llm()
         structured = llm.with_structured_output(FinalResponse)
-        human = f"reference_no: {reference_no}\nparsed_request: {json.dumps(parsed_request, ensure_ascii=False)}\nagent_results: {json.dumps(agent_results, ensure_ascii=False)[:12000]}"
+        human = (
+            f"reference_no: {reference_no}\n"
+            f"parsed_request: {json.dumps(parsed_request, ensure_ascii=False)}\n"
+            f"agent_results:\n{_agent_blocks(agent_results)}"
+        )
         result: FinalResponse = structured.invoke([("system", SYNTHESIS_SYSTEM_PROMPT), ("human", human)])
         final = result.model_dump() if result else {}
         # ensure tender_id filled

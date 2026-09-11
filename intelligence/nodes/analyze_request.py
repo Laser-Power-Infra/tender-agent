@@ -1,9 +1,8 @@
 import logging
 
 from pydantic import BaseModel, Field
-from langchain_openai import ChatOpenAI
 
-from core.config import settings
+from intelligence.llm import get_llm
 from intelligence.state import IntelligenceState
 
 logger = logging.getLogger(__name__)
@@ -33,19 +32,6 @@ class ParsedRequest(BaseModel):
     reference_no: str = Field(description="tender/reference number")
     requirements: list[Requirement] = Field(description="specific information requested")
 
-# ponytail: single LLM instance, reuse across calls; recreate on restart if model/key changes
-_llm = None
-
-def _get_llm():
-    global _llm
-    if _llm is not None:
-        return _llm
-    api_key = (settings.openai_api_key or "").strip() if settings.openai_api_key else ""
-    if not api_key:
-        raise ValueError("OPENAI_API_KEY missing (set in .env)")
-    # ponytail: gpt-4o-mini cheapest, upgrade to gpt-4o when quality needs prove
-    _llm = ChatOpenAI(model="gpt-4o-mini", api_key=api_key, temperature=0)
-    return _llm
 
 def analyze_request(state: IntelligenceState) -> dict:
     user_query = (state.get("user_query") or "").strip()
@@ -55,7 +41,7 @@ def analyze_request(state: IntelligenceState) -> dict:
         logger.error(err)
         return {"parsed_request": {}, "errors": [{"node": "analyze_request", "error": err}]}
     try:
-        llm = _get_llm()
+        llm = get_llm()
         structured = llm.with_structured_output(ParsedRequest)
         # ponytail: structured output enforces schema, no JSON prompt hacking
         result: ParsedRequest = structured.invoke(
