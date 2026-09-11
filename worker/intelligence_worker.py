@@ -38,6 +38,18 @@ def _safe_ack_nack(ch, method, ack: bool):
         logger.warning("Ack/nack failed (connection lost) delivery_tag=%s error=%s", method.delivery_tag, e)
 
 
+_graph = None  # ponytail: singleton, graph compile once
+
+
+def get_graph():
+    global _graph
+    if _graph is None:
+        from intelligence.graph import build_intelligence_graph
+
+        _graph = build_intelligence_graph()
+    return _graph
+
+
 def handle_message(ch, method, properties, body):
     logger.info("Received raw body=%r", body)
     try:
@@ -45,10 +57,17 @@ def handle_message(ch, method, properties, body):
         logger.info("Payload parsed: %r", payload)
         job = IntelligenceJob.model_validate(payload)
         logger.info("Validated job reference_no=%s tender_type=%r", job.reference_no, job.tender_type)
-        # ponytail: graph not built yet, stub ack; wire intelligence graph invoke when ready.
-        # the graph input must carry {"reference_no": ..., "tender_type": job.tender_type} — tender_type
-        # is what routes which document sections run (see document_agents.agents_for_tender_type).
-        logger.info("Intelligence job done reference_no=%s (stub)", job.reference_no)
+        # ponytail: wire 6 agents — reverse_auction, basic_details, emd_agent, gem/non_gem/common document
+        graph = get_graph()
+        result = graph.invoke(
+            {
+                "reference_no": job.reference_no,
+                "tender_type": job.tender_type,
+                "user_query": payload.get("user_query") or payload.get("userQuery") or "",
+                "parsed_request": payload.get("parsed_request") or payload.get("parsedRequest") or {},
+            }
+        )
+        logger.info("Intelligence done ref=%s final=%r", job.reference_no, result.get("final_response"))
         _safe_ack_nack(ch, method, ack=True)
     except ValidationError as e:
         logger.error("Validation failed body=%r errors=%s", body, e.errors())

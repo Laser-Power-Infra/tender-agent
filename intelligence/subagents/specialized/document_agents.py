@@ -119,6 +119,7 @@ DOCUMENT_AGENTS: tuple[str, ...] = tuple(SECTION_QUERIES)
 # single source of "which agents have a fixed checklist" — generate_queries and synthesize both read it
 STATIC_QUERIES: dict[str, list[dict]] = {
     "company_document_finder": COMPANY_DOCUMENT_QUERIES,
+    "document_finder": COMPANY_DOCUMENT_QUERIES,  # alias for new name
     **SECTION_QUERIES,
 }
 

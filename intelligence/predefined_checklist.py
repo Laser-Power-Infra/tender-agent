@@ -1,32 +1,29 @@
-"""Predefined checklist for missing user_query — no LLM.
+"""Hardcoded checklist — which agents will run. Tender_type controls doc agents."""
 
-Single source reuse: same agents_for_tender_type + STATIC_QUERIES as
-create_checklist deterministic part, but isolated for inbuilt path.
-"""
+_BASE_AGENTS = [
+    "reverse_auction",
+    "basic_details",
+    "emd_agent",
+]
 
-from intelligence.subagents.specialized.document_agents import (
-    STATIC_QUERIES,
-    agents_for_tender_type,
-    section_title,
-)
+
+def _doc_agents(tender_type: str = "") -> list[str]:
+    # ponytail: GEM vs NON_GEM only, common always
+    if (tender_type or "").strip().upper() == "GEM":
+        return ["gem_document_agent", "common_document_agent"]
+    return ["non_gem_document_agent", "common_document_agent"]
 
 
 def get_predefined_checklist(tender_type: str = "") -> list[dict]:
-    seen: set[str] = set()
-    checklist: list[dict] = []
-    for agent in agents_for_tender_type(tender_type):
-        if agent in seen:
-            continue
-        seen.add(agent)
-        documents = STATIC_QUERIES.get(agent) or []
-        checklist.append(
-            {
-                "task_id": agent,
-                "agent": agent,
-                "description": f"Determine which of the {len(documents)} documents in the {section_title(agent)} checklist this tender requires",
-                "status": "pending",
-                "result_key": None,
-                "error": None,
-            }
-        )
-    return checklist
+    agents = _BASE_AGENTS + _doc_agents(tender_type)
+    return [
+        {
+            "task_id": agent,
+            "agent": agent,
+            "description": f"Run {agent}",
+            "status": "pending",
+            "result_key": None,
+            "error": None,
+        }
+        for agent in agents
+    ]

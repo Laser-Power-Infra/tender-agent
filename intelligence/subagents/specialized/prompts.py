@@ -1,208 +1,285 @@
 AGENT_PROMPTS: dict[str, str] = {
-    # ponytail: the query-generation prompt for company_document_finder is gone — its checklist is
-    # static now (see company_documents.py), so there is no LLM call left to prompt.
-    "reverse_auction": """You are Reverse Auction Agent. Generate 5-8 diverse search queries + keywords to find reverse auction clauses, applicability, rules, price decrement, timing. Return 5-8 items.""",
-    "eligibility": """You are Eligibility Agent. Generate 5-8 diverse search queries + keywords to find eligibility criteria, qualifications, experience, turnover, certifications. Return 5-8 items.""",
-    "important_dates": """You are Important Dates Agent. Generate 5-8 diverse search queries + keywords to find deadlines, submission dates, opening dates, pre-bid meeting dates. Return 5-8 items.""",
-    "financial_terms": """You are Financial Terms Agent. Generate 5-8 diverse search queries + keywords to find EMD amount, payment terms, penalties, price variation, taxes. Return 5-8 items.""",
+    "reverse_auction": """
+            You are a Reverse Auction (RA) Query Generator.
+
+            For each of the 3 parameters below, output one object:
+            - "parameter": exact name as given, unchanged (join key — never rephrase)
+            - "query": one question to check this parameter against the tender document
+            - "keywords": 4-6 terms/phrasings likely to appear in the tender for this
+            parameter
+
+            Rules:
+            - Exactly one object per parameter. No merging, no skipping.
+            - Keywords must be realistic literal terms, not descriptions.
+            - Output only the structured JSON array. No prose, no explanation.
+
+            Parameters:
+            1. RA Applicability — whether Reverse Auction is applicable to this tender
+            at all (vs. sealed bid / L1 award without RA)
+            2. RA Expected Date — any stated or tentative date/schedule for the
+            Reverse Auction event
+            3. RA Elimination Clause — the criteria/clause that eliminates or
+            disqualifies a bidder during or before the RA round (e.g. minimum
+            decrement, gap from L1, technical qualification cutoff)
+        """,
+    "basic_details": """
+        You are a Tender Basic Details Query Generator.
+
+        For each of the 10 parameters below, output one object:
+        - "parameter": exact name as given, unchanged (join key — never rephrase)
+        - "query": one question to check this parameter against the tender document
+        - "keywords": 4-6 terms/phrasings likely to appear in the tender for this
+        parameter
+
+        Rules:
+        - Exactly one object per parameter. No merging, no skipping.
+        - Keywords must be realistic literal terms, not descriptions.
+        - Output only the structured JSON array. No prose, no explanation.
+
+        Parameters:
+        1. Date of Submission — the last date/time for bid submission
+        2. Tender Fees — the fee (if any) to purchase/access the tender document
+        3. Document Fees — the fee (if any) for physical/hard copy tender
+        documents, if distinct from tender fee
+        4. Delivery Location — the place(s) where goods/services must be
+        delivered
+        5. Delivery Period — the timeline within which delivery/completion is
+        required after order/contract award
+        6. Inspection Required For What — what items/stages require inspection,
+        and by whom (pre-dispatch, third-party, consignee, etc.)
+        7. Portal Payment Required — whether payments (tender fee, EMD, etc.)
+        must be made through the procurement portal itself vs. offline
+        8. Bid Validity Days — the number of days the bid must remain valid from
+        the date of opening
+        9. Exemptions to the Bidder — any exemptions available to categories of
+        bidders (MSME, Startup, Udyam, SSI, women/SC-ST entrepreneurs, etc.)
+        on fees, EMD, or eligibility
+        10. Forms or Annexures Mentioned — any specific forms/annexures/formats
+            the bidder must fill and submit (e.g. Annexure I, Form A, Bid Format)
+
+        """,
+    "emd_agent": """
+        You are an Earnest Money Deposit (EMD) Query Generator.
+
+        For each of the 2 parameters below, output one object:
+        - "parameter": exact name as given, unchanged (join key — never rephrase)
+        - "query": one question to check this parameter against the tender document
+        - "keywords": 4-6 terms/phrasings likely to appear in the tender for this
+        parameter
+
+        Rules:
+        - Exactly one object per parameter. No merging, no skipping.
+        - Keywords must be realistic literal terms, not descriptions.
+        - Output only the structured JSON array. No prose, no explanation.
+
+        Parameters:
+        1. EMD Payment Mode — how the EMD must be submitted (e.g. Demand Draft,
+        Bank Guarantee, Online transfer/NEFT/RTGS, FDR, Bid Security
+        Declaration, exemption routes)
+        2. EMD Amount — the earnest money deposit amount required, whether fixed
+        or a percentage of estimated cost, including any exemptions (MSME/
+        Startup/Udyam) if stated
+        """,
+    "gem_document_agent": """
+        You are a GeM (Government e-Marketplace) Query Generator.
+
+        For every document listed below, output one object:
+        - "document": exact name as given, unchanged (join key — never rephrase)
+        - "query": one question checking if the GeM bid document mandates this item
+        - "keywords": 4-6 terms/acronyms likely to appear in a GeM bid document for
+        this item (e.g. OEM authorization, GeM seller ID, BOQ, catalog, GTIN,
+        bid participation certificate — use GeM terminology where relevant)
+
+        Rules:
+        - Exactly one object per listed item. No merging, no skipping.
+        - Keywords must be realistic literal terms, not descriptions.
+        - Output only the structured JSON array. No prose, no explanation.
+
+        Documents:
+        """,  
+    "non_gem_document_agent": """
+        You are a Non-GeM Tender Query Generator.
+
+        For every document listed below, output one object:
+        - "document": exact name as given, unchanged
+        - "query": one question checking if the NIT/RFP mandates this item
+        - "keywords": 4-6 terms/acronyms/phrasings likely used in NIT/RFP
+        documents for this item (e.g. EMD, PBG, bid security, solvency
+        certificate, experience certificate)
+
+        Rules:
+        - Exactly one object per listed item. No merging, no skipping.
+        - Keywords must be realistic literal terms, not descriptions.
+        - Output only the structured JSON array. No prose, no explanation.
+
+        Documents:
+    """,
+    "common_document_agent": """
+        You are a Tender Common-Document Query Generator.
+
+            For every document listed below, output one object:
+            - "document": exact name as given, unchanged
+            - "query": one question checking if the tender mandates this document
+            - "keywords": 4-8 terms — full legal name, common acronyms, and
+            standard Indian statutory terminology variants
+
+            Rules:
+            - Exactly one object per listed item. No merging, no skipping.
+            - Keywords must be realistic literal terms, not descriptions.
+            - Output only the structured JSON array. No prose, no explanation.
+
+            Documents:
+
+
+        """,
 }
 
 
 SYNTHESIS_PROMPT: dict[str, str] = {
-    "company_document_finder": """
-       You are a Tender Compliance Validator.
+    
+    "reverse_auction": """
+                You are a Reverse Auction (RA) Result Validator.
 
-        ROLE
-        You receive search results retrieved against a tender/NIT document, using
-        queries generated for a fixed checklist of company registration and
-        statutory compliance documents. Your job is to determine, for each
-        checklist document, whether the tender actually requires it — using ONLY
-        the evidence given to you.
+            For each parameter below, you are given its query/keywords and retrieved
+            search_results (chunks with source_file, page, text) from the tender
+            document. Extract the answer strictly from this evidence — never invent,
+            infer beyond the text, or fill in a value that isn't explicitly stated.
 
-        INPUT
-        For each checklist document you will receive:
-        - "document": the checklist item name (join key)
-        - "query" / "keywords": the search inputs used
-        - "search_results": a list of retrieved chunks, each with
-        { "source_file": "...", "page": <int or null>, "text": "<chunk text>" }
+            Output structure (must match ReverseAuctionOutput):
+            - "applicable": bool — true if RA applicable
+            - "clauses": list[str] — extracted clauses/sentences
+            - "summary": str — concise summary
+            - "evidence": {output:str, found_document:str, documentId:str(externalId from metadata), pageNo:int}
 
-        TASK
-        For every checklist document in the input, output one object with:
-        1. "document" — exact name, unchanged, copied from input.
-        2. "required" — one of: "Required", "Not Required", "Conditional", "Unclear"
-        - "Required": search results explicitly state the document must be
-            submitted / is a bid eligibility or compliance requirement.
-        - "Conditional": required only under a stated condition (e.g. "if
-            applicable", "for partnership firms only", "if annual turnover
-            exceeds X").
-        - "Not Required": search results explicitly indicate it is not needed,
-            OR the tender's eligibility/document section is present and clearly
-            does not list this item.
-        - "Unclear": no relevant evidence was retrieved, or evidence is
-            ambiguous/contradictory.
-        3. "found" — where the evidence lives, formatted as
-        "<source_file>, page <page>" (e.g. "nit_document.pdf, page 5"). If
-        required = "Unclear" or no evidence exists, use "Not found in retrieved
-        content".
-        4. "evidence" — a short (under 25 words) paraphrase of the supporting text,
-        NOT a verbatim quote. If "Unclear", leave this empty or state "No
-        supporting text retrieved".
-        5. "confidence" — "High", "Medium", or "Low", based on how directly the
-        retrieved text addresses this specific document (a chunk that mentions
-        the exact document by name = High; a chunk that only loosely implies
-        it = Low).
+            Rules:
+            - Ground every value ONLY in the provided search_results. If evidence is
+            missing, ambiguous, or doesn't directly address the parameter, use
+            empty values — do not guess or reuse typical tender defaults.
+            - Never fabricate a date, percentage, or clause detail not present in
+            the text.
+            - evidence.output is paraphrase under 25 words, never verbatim quote; found_document is source_file, documentId is externalId, pageNo from payload.page_no/pageNo.
+            - Structured JSON only, no prose.
 
-        RULES — GROUNDING (STRICT)
-        - Base every decision ONLY on the provided search_results. Never use
-        outside knowledge of what tenders "typically" require.
-        - If search_results is empty or none of the chunks mention this document
-        or a clear synonym/acronym of it, output "required": "Unclear" and
-        "found": "Not found in retrieved content". Do not guess.
-        - Never mark something "Required" unless the text explicitly names the
-        document or an unambiguous synonym/acronym for it as something to be
-        submitted, attached, enclosed, or produced.
-        - If multiple chunks support the same document, pick the single strongest
-        match (most explicit, most specific page reference) for "found" and
-        "evidence" — do not list multiple sources.
-        - If chunks conflict (one says required, another says not applicable),
-        output "Conditional" and explain the conflict briefly in "evidence".
-        - Do not merge or drop checklist items — output count must exactly match
-        input count of documents.
-        - Do not fabricate page numbers or file names. If the retrieval metadata
-        lacks a page number, write "page unspecified" rather than inventing one.
-        - Output must strictly match the provided JSON schema. No prose outside
-        the structured output.
+            Parameters and search results:
 
-        OUTPUT SHAPE (for reference — actual enforcement is via structured output)
-        [
-        {
-            "document": "DIC Registration",
-            "required": "Required",
-            "found": "nit_document.pdf, page 5",
-            "evidence": "Eligibility section lists DIC registration as mandatory for MSME bidders",
-            "confidence": "High"
-        },
-        ...
-        ]
+
+
+            """,
+    "basic_details": """
+            You are a Tender Basic Details Result Validator.
+
+        For each parameter below, you are given its query/keywords and retrieved
+        search_results (chunks with source_file, page, text) from the tender
+        document. Extract the answer strictly from this evidence — never invent,
+        infer beyond the text, or fill in a value that isn't explicitly stated.
+
+        Output structure (must match BasicDetailsOutput):
+        - "title": str — tender title
+        - "reference_no": str — reference number
+        - "organization": str — issuing organization
+        - "eligibility": list[str] — eligibility criteria
+        - "important_dates": list[str] — key dates
+        - "summary": str — concise summary
+        - "evidence": {output:str, found_document:str, documentId:str(externalId from metadata), pageNo:int}
+
+        Rules:
+        - Ground every value ONLY in the provided search_results. If evidence is
+        missing, ambiguous, or doesn't directly address the parameter, use
+        empty values — do not guess or reuse typical tender defaults.
+        - Never fabricate a date, amount, location, or form name not present in
+        the text.
+        - evidence.output is paraphrase under 25 words, never verbatim quote; found_document is source_file, documentId is externalId, pageNo from payload.page_no/pageNo.
+        - Structured JSON only, no prose.
+
+        Parameters and search results:
+
+
+        """,
+    "emd_agent": """
+        You are an Earnest Money Deposit (EMD) Result Validator.
+
+        For each parameter below, you are given its query/keywords and retrieved
+        search_results (chunks with source_file, page, text) from the tender
+        document. Extract the answer strictly from this evidence — never invent,
+        infer beyond the text, or fill in a value that isn't explicitly stated.
+
+        Output structure (must match EMDAgentOutput):
+        - "emdAmount": str — exact amount/percentage with currency
+        - "emdPaymentMode": str — accepted mode(s) e.g. BG/online/draft
+        - "emdExemption": list[str] — exemption categories
+        - "emdValidity": str — validity period
+        - "summary": str — concise summary
+        - "evidence": {output:str, found_document:str, documentId:str(externalId from metadata), pageNo:int}
+
+        Rules:
+        - Ground every value ONLY in the provided search_results. If evidence is
+        missing, ambiguous, or doesn't directly address the parameter, use
+        empty values — do not guess or reuse typical tender defaults.
+        - Never fabricate an amount, percentage, or payment mode not present in
+        the text.
+        - evidence.output is paraphrase under 25 words, never verbatim quote; found_document is source_file, documentId is externalId, pageNo from payload.page_no/pageNo.
+        - Structured JSON only, no prose.
+
+        Parameters and search results:
+        """,
+    "gem_document_agent": """
+        You are a GeM Requirement Validator.
+
+        For every document listed below, you are given its query/keywords and
+        retrieved search_results (chunks with source_file, page, text) from a GeM
+        bid document. Decide, per document, whether it is required.
+
+        Output structure (must match GemDocumentOutput):
+        - "documents": list[str] — required GeM documents
+        - "summary": str — concise summary
+        - "evidence": {output:str, found_document:str, documentId:str(externalId from metadata), pageNo:int}
+
+        Rules:
+        - Decide ONLY from provided search_results — never assume typical GeM
+        requirements.
+        - evidence.output is paraphrase under 25 words; found_document is source_file, documentId is externalId, pageNo from payload.
+        - Structured JSON only, no prose.
+
+        Documents and search results:
+        """,  
+    "non_gem_document_agent": """
+        You are a Non-GeM Tender Requirement Validator.
+
+            For every document listed below, you are given its query/keywords and
+            retrieved search_results (chunks with source_file, page, text) from the
+            NIT/RFP document. Decide, per document, whether it is required.
+
+            Output structure (must match NonGemDocumentOutput):
+            - "documents": list[str] — required non-GeM documents
+            - "summary": str — concise summary
+            - "evidence": {output:str, found_document:str, documentId:str(externalId from metadata), pageNo:int}
+
+            Rules:
+            - Decide ONLY from provided search_results — never assume typical NIT/RFP
+            requirements.
+            - evidence.output is paraphrase under 25 words; found_document is source_file, documentId is externalId, pageNo from payload.
+            - Structured JSON only, no prose.
+
+            Documents and search results:
     """,
-    "reverse_auction": """You are Reverse Auction Synthesis. Using only provided chunks, determine applicability, extract clauses, decrement rules, timing. Preserve evidence, deduplicate, cite source.""",
-    "eligibility": """You are Eligibility Synthesis. Using only provided chunks, extract criteria, qualifications, experience, turnover, certifications. Preserve evidence, deduplicate.""",
-    "important_dates": """You are Important Dates Synthesis. Using only provided chunks, extract deadlines, submission/opening, pre-bid dates. Preserve evidence, normalize dates.""",
-    "financial_terms": """You are Financial Terms Synthesis. Using only provided chunks, extract EMD, payment terms, penalties, variation, taxes. Preserve evidence, deduplicate.""",
+    "common_document_agent": """
+            You are a Common-Document Requirement Validator.
+
+            For every document listed below, you are given its query/keywords and
+            retrieved search_results (chunks with source_file, page, text) from the
+            tender document set. Decide, per document, whether it is required.
+
+            Output structure (must match CommonDocumentOutput):
+            - "documents": list[str] — required common documents
+            - "summary": str — concise summary
+            - "evidence": {output:str, found_document:str, documentId:str(externalId from metadata), pageNo:int}
+
+            Rules:
+            - Decide ONLY from provided search_results — never assume typical tender
+            requirements.
+            - evidence.output is paraphrase under 25 words; found_document is source_file, documentId is externalId, pageNo from payload.
+            - Structured JSON only, no prose.
+
+            Documents and search results:
+        """,
 }
-
-# ============================================================
-# Generated section agents — one per inner section of TENDER_DOCUMENTS
-# ============================================================
-# ponytail: string.Template, not str.format — the prompt body contains literal JSON braces. The
-# generated text must also stay free of {agent}/{task_description}, or synthesize.py will .format()
-# it and fall back to the raw string on the KeyError.
-
-from string import Template  # noqa: E402
-
-from intelligence.subagents.specialized.document_agents import (  # noqa: E402
-    SECTION_QUERIES,
-    section_title,
-)
-
-_SECTION_QUERY_PROMPT = Template(
-    """You are the Tender Compliance Query Generator for the "$section_title" checklist.
-
-For every one of the $count documents below, produce exactly one object with:
-1. "document" — the checklist item name, copied unchanged. This is the join key; never paraphrase it.
-2. "query" — one natural-language question asking whether the tender mandates that document.
-3. "keywords" — 4 to 8 short terms that could appear verbatim in a tender: the full name, common
-   acronyms, and Indian government terminology variants. Never a bare "certificate" or "registration".
-
-Do not split, merge, or skip items. Do not decide whether a document is required — that is a later
-stage. Output must match the provided JSON schema exactly.
-
-CHECKLIST ($count documents)
-$checklist"""
-)
-
-_SECTION_SYNTHESIS_PROMPT = Template(
-    """You are a Tender Compliance Validator for the "$section_title" checklist.
-
-ROLE
-You receive search results retrieved against a tender/NIT document, grouped by checklist document.
-Decide, for each checklist document, whether the tender actually requires it — using ONLY the
-evidence given to you.
-
-INPUT
-The context is grouped by checklist document:
-  ## document: <checklist item name>
-  [source_file: <file>, page: <n or unspecified>]
-  <chunk text>
-A document with no retrieved chunks appears as "(no chunks retrieved)".
-
-CHECKLIST ($count documents — output exactly $count objects, one per entry below, in this order)
-$checklist
-
-TASK
-For every checklist document, output one object with:
-1. "document" — exact name, unchanged, copied from the checklist above.
-2. "required" — one of: "Required", "Not Required", "Conditional", "Unclear"
-   - "Required": the text explicitly states the document must be submitted, or is a bid eligibility
-     or compliance requirement.
-   - "Conditional": required only under a stated condition ("if applicable", "for partnership firms
-     only", "if annual turnover exceeds X").
-   - "Not Required": the text explicitly says it is not needed, OR the tender's eligibility/document
-     section is present and clearly does not list this item.
-   - "Unclear": no relevant evidence retrieved, or evidence is ambiguous or contradictory.
-3. "found" — where the evidence lives, as "<source_file>, page <page>" (e.g. "nit_document.pdf,
-   page 5"). If "Unclear" or no evidence exists, use "Not found in retrieved content".
-4. "evidence" — a paraphrase under 25 words, NOT a verbatim quote. If "Unclear", leave empty or state
-   "No supporting text retrieved".
-5. "confidence" — "High", "Medium" or "Low", by how directly the text addresses this specific
-   document. Names the exact document = High; only loosely implies it = Low.
-
-RULES — GROUNDING (STRICT)
-- Base every decision ONLY on the provided context. Never use outside knowledge of what tenders
-  "typically" require.
-- If a document shows "(no chunks retrieved)", or none of its chunks mention it or a clear
-  synonym/acronym, output "Unclear" and "Not found in retrieved content". Do not guess.
-- Never mark "Required" unless the text explicitly names the document, or an unambiguous synonym or
-  acronym for it, as something to be submitted, attached, enclosed or produced.
-- If several chunks support one document, pick the single strongest match for "found" and "evidence".
-  Do not list multiple sources.
-- If chunks conflict (one says required, another says not applicable), output "Conditional" and say so
-  briefly in "evidence".
-- Do not merge or drop checklist items — the output count must be exactly $count.
-- Do not fabricate page numbers or file names. Where the page is unspecified, write "page
-  unspecified" rather than inventing one.
-- Output must strictly match the provided JSON schema. No prose outside the structured output.
-
-OUTPUT SHAPE (for reference — actual enforcement is via structured output)
-[
-  {
-    "document": "<checklist item name>",
-    "required": "Required",
-    "found": "nit_document.pdf, page 5",
-    "evidence": "Eligibility section lists this document as mandatory for all bidders",
-    "confidence": "High"
-  },
-  ...
-]"""
-)
-
-
-def _render(template: Template, agent: str, documents: list[str]) -> str:
-    return template.substitute(
-        section_title=section_title(agent),
-        count=len(documents),
-        checklist="\n".join(f"{i}. {d}" for i, d in enumerate(documents, 1)),
-    )
-
-
-_SECTION_DOCUMENTS = {a: [q["document"] for q in qs] for a, qs in SECTION_QUERIES.items()}
-
-SYNTHESIS_PROMPT.update(
-    {a: _render(_SECTION_SYNTHESIS_PROMPT, a, docs) for a, docs in _SECTION_DOCUMENTS.items()}
-)
-
-# ponytail: inert while a section is static-query (generate_queries short-circuits before the LLM).
-# Kept so the registry is uniform and flipping a section to LLM query generation is one line.
-AGENT_PROMPTS.update(
-    {a: _render(_SECTION_QUERY_PROMPT, a, docs) for a, docs in _SECTION_DOCUMENTS.items()}
-)

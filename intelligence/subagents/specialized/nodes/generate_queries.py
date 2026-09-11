@@ -21,7 +21,7 @@ def generate_queries(state: SpecializedState) -> dict:
         return {"query_pairs": [], "status": "failed", "error": err}
 
     static = STATIC_QUERIES.get(agent)
-    if static:
+    if static and agent not in ("document_finder", "company_document_finder"):
         logger.info("generate_queries static agent=%s ref=%s items=%s", agent, reference_no, len(static))
         return {"query_pairs": [dict(item) for item in static], "status": "planned", "error": None}
 

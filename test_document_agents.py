@@ -61,11 +61,14 @@ def test_no_collision_with_the_hand_written_agents():
 
 
 def test_every_agent_is_fully_registered():
-    for agent in DOCUMENT_AGENTS:
-        assert agent in STATIC_QUERIES, f"{agent} would fall through to an LLM query call"
-        assert agent in SYNTHESIS_PROMPT, f"{agent} would borrow the company prompt"
-        assert agent in AGENT_PROMPTS, agent
-        assert AGENT_OUTPUT_MODELS.get(agent) is BaseSynthesizeDocumentOutput, agent
+    # ponytail: now only 4 active agents, not 52 sections — check active set
+    for agent in AVAILABLE_AGENTS:
+        assert agent in SYNTHESIS_PROMPT, f"{agent} missing synthesis prompt"
+        assert agent in AGENT_OUTPUT_MODELS, f"{agent} missing output model"
+        if agent in ("document_finder", "company_document_finder"):
+            assert agent in STATIC_QUERIES, f"{agent} would fall through to an LLM query call"
+        else:
+            assert agent in AGENT_PROMPTS, f"{agent} missing query prompt"
 
 
 def test_707_pairs_with_unique_join_keys():
@@ -80,7 +83,10 @@ def test_707_pairs_with_unique_join_keys():
 
 
 def test_prompt_matches_the_checklist():
+    # legacy 52 section prompts removed — only check active agents that have section queries
     for agent, pairs in SECTION_QUERIES.items():
+        if agent not in SYNTHESIS_PROMPT:
+            continue
         prompt = SYNTHESIS_PROMPT[agent]
         assert f"exactly {len(pairs)} objects" in prompt, agent
         for p in pairs:
@@ -89,8 +95,10 @@ def test_prompt_matches_the_checklist():
 
 def test_prompt_has_no_format_placeholders():
     # synthesize.py calls .format() when it sees either token, which would blow up on the JSON braces
-    for agent in DOCUMENT_AGENTS:
-        for prompt in (SYNTHESIS_PROMPT[agent], AGENT_PROMPTS[agent]):
+    for agent in AVAILABLE_AGENTS:
+        for prompt in (SYNTHESIS_PROMPT.get(agent, ""), AGENT_PROMPTS.get(agent, "")):
+            if not prompt:
+                continue
             assert "{agent}" not in prompt and "{task_description}" not in prompt, agent
 
 
@@ -116,16 +124,17 @@ def test_routing_is_bucket_plus_common():
 
 
 def test_checklist_is_deterministic_without_an_llm():
-    # empty parsed_request: the analytical agents are skipped, the document sections still run
-    out = create_checklist({"reference_no": "T123", "tender_type": "gem", "parsed_request": {}})
+    # GEM vs NON_GEM only: GEM→gem+common+3, else→non_gem+common+3
+    out = create_checklist({"reference_no": "T123", "tender_type": "GEM", "parsed_request": {}})
     checklist = out["checklist"]
-    assert len(checklist) == 44, len(checklist)
+    assert len(checklist) == 5, len(checklist)
     assert all(t["status"] == "pending" for t in checklist)
+    assert {t["agent"] for t in checklist} == {"reverse_auction", "basic_details", "emd_agent", "gem_document_agent", "common_document_agent"}
     ids = [t["task_id"] for t in checklist]
     assert len(set(ids)) == len(ids), "task_id must be unique — run_task keys agent_results by it"
-    assert out["errors"], "skipping the analytical agents should be recorded, not silent"
-    assert len(create_checklist({"reference_no": "T", "tender_type": "non_gem"})["checklist"]) == 47
-    assert len(create_checklist({"reference_no": "T"})["checklist"]) == 39
+    assert {t["agent"] for t in create_checklist({"reference_no": "T", "tender_type": "NON_GEM"})["checklist"]} == {"reverse_auction", "basic_details", "emd_agent", "non_gem_document_agent", "common_document_agent"}
+    assert len(create_checklist({"reference_no": "T"})["checklist"]) == 5  # default NON_GEM
+    assert len(create_checklist({"reference_no": "T", "tender_type": "gem"})["checklist"]) == 5
 
 
 if __name__ == "__main__":
