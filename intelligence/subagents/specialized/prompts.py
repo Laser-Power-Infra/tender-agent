@@ -1,3 +1,5 @@
+from constants.tender_documents import TENDER_DOCUMENTS
+
 AGENT_PROMPTS: dict[str, str] = {
     "reverse_auction": """
             You are a Reverse Auction (RA) Query Generator.
@@ -133,6 +135,26 @@ AGENT_PROMPTS: dict[str, str] = {
 
         """,
 }
+
+
+# ponytail: the three document prompts end on a bare "Documents:" header — the checklist itself
+# lives in constants/tender_documents.py, one bucket per agent, so attach it here rather than
+# restate 707 names inline.
+# ponytail: `common` is 520 documents, so generate_queries asks one llm call for 520 structured
+# objects and execute_search then runs 520 searches at _SEARCH_CONCURRENCY=4. That is over what one
+# call can return; the document count gets cut later, this only wires the list up.
+_BUCKET_FOR_AGENT = {
+    "gem_document_agent": "gem_only",
+    "non_gem_document_agent": "non_gem_only",
+    "common_document_agent": "common",
+}
+
+for _agent, _bucket in _BUCKET_FOR_AGENT.items():
+    # dict.fromkeys dedupes and keeps order — `common` repeats 54 names across its sections, and the
+    # prompt demands exactly one object per listed item
+    _documents = dict.fromkeys(d for _section in TENDER_DOCUMENTS[_bucket].values() for d in _section)
+    # rstrip first: the prompts end on an indented blank line, which would swallow the first name
+    AGENT_PROMPTS[_agent] = AGENT_PROMPTS[_agent].rstrip() + "\n" + "\n".join(f"- {d}" for d in _documents)
 
 
 SYNTHESIS_PROMPT: dict[str, str] = {

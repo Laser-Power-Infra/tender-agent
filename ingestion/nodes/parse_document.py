@@ -1,4 +1,5 @@
 import logging
+import os
 from pathlib import Path
 
 from ingestion.state import IngestionState
@@ -11,13 +12,33 @@ _converter = None
 # docling emits this between pages when asked, so one export yields every page
 _PAGE_BREAK = "<!-- docling-page-break -->"
 
+# ponytail: module constants, env override for tuning.
+# Promote to core/config.py if a second module ever needs them.
+_NUM_THREADS = int(os.getenv("DOCLING_NUM_THREADS", "4"))
+_PAGE_BATCH = int(os.getenv("DOCLING_PAGE_BATCH", "5"))  # 0 disables batching
+
 
 def _get_converter():
     global _converter
     if _converter is None:
-        from docling.document_converter import DocumentConverter
+        from docling.datamodel.accelerator_options import AcceleratorOptions
+        from docling.datamodel.base_models import InputFormat
+        from docling.datamodel.pipeline_options import PdfPipelineOptions
+        from docling.document_converter import DocumentConverter, PdfFormatOption
 
-        _converter = DocumentConverter()
+        # ponytail: cpu-only torch sizes its intra-op pool to the core count and docling
+        # stacks its own on top -> 8 cores at 99% and the host stalls. Same fix as
+        # rerank.py:32, different process. Must run before the first model load.
+        import torch
+
+        torch.set_num_threads(_NUM_THREADS)
+
+        opts = PdfPipelineOptions()
+        opts.accelerator_options = AcceleratorOptions(num_threads=_NUM_THREADS)
+        _converter = DocumentConverter(
+            format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=opts)}
+        )
+        logger.info("docling converter ready threads=%s page_batch=%s", _NUM_THREADS, _PAGE_BATCH)
     return _converter
 
 
@@ -46,6 +67,17 @@ def _resolve_paths(state: dict) -> tuple[str | None, str | None, str | None, str
     )
 
 
+def _pdf_page_count(file_path: str) -> int | None:
+    """Page count without running docling. None when the file is not a readable pdf."""
+    try:
+        from pypdf import PdfReader
+
+        return len(PdfReader(str(file_path)).pages) or None
+    except Exception as e:
+        logger.warning("pypdf page count failed for %s: %s", file_path, e)
+        return None
+
+
 def _page_count(doc, file_path: str, pdf_fallback: bool) -> int:
     pages = doc.pages if hasattr(doc, "pages") else []
     total = len(pages) if hasattr(pages, "__len__") else 0
@@ -58,21 +90,20 @@ def _page_count(doc, file_path: str, pdf_fallback: bool) -> int:
     if total:
         return total
     if pdf_fallback:
-        try:
-            from pypdf import PdfReader
-
-            return len(PdfReader(str(file_path)).pages)
-        except Exception:
-            pass
+        total = _pdf_page_count(file_path)
+        if total:
+            return total
     # ponytail: docx has no pdf pages, treat as single page
     return 1
 
 
-def _page_markdowns(doc, total: int) -> list[tuple[str | None, str | None]]:
-    """Per-page (markdown, error).
+def _page_markdowns(doc, total: int, start: int = 1) -> list[tuple[str | None, str | None]]:
+    """Per-page (markdown, error) for `total` pages numbered from `start`.
 
     One export pass. export_to_markdown(page_no=i) walks the whole item list per call,
     so the per-page loop is O(pages x items) and stays as the fallback only.
+    `start` is not 1 when the doc came from a page_range batch — its pages keep their
+    original numbers, so the fallback must ask for those, not 1..total.
     """
     try:
         parts = doc.export_to_markdown(page_break_placeholder=_PAGE_BREAK).split(_PAGE_BREAK)
@@ -83,7 +114,7 @@ def _page_markdowns(doc, total: int) -> list[tuple[str | None, str | None]]:
         logger.warning("single-pass markdown export failed (%s), falling back to per-page export", e)
 
     out: list[tuple[str | None, str | None]] = []
-    for i in range(1, total + 1):
+    for i in range(start, start + total):
         try:
             out.append((doc.export_to_markdown(page_no=i), None))
         except Exception as e:
@@ -107,10 +138,23 @@ def _parse_with_docling(state: IngestionState, kind: str) -> dict:
     try:
         converter = _get_converter()
         logger.info("%s converting %s ref=%s tag=%s", kind, file_path, reference_no, document_tag)
-        doc = converter.convert(source=file_path).document
+        # ponytail: one convert() holds every page's images at once, so a 10+ page pdf
+        # spikes ram until the host dies. Convert in _PAGE_BATCH-page windows and drop
+        # each doc before the next. Pdf only — docx/xlsx have no page model to slice.
+        total = _pdf_page_count(file_path) if kind == "parse_pdf" else None
 
-        total = _page_count(doc, file_path, pdf_fallback=(kind == "parse_pdf"))
-        pages = _page_markdowns(doc, total)
+        if total and _PAGE_BATCH and total > _PAGE_BATCH:
+            pages: list[tuple[str | None, str | None]] = []
+            for start in range(1, total + 1, _PAGE_BATCH):
+                end = min(start + _PAGE_BATCH - 1, total)
+                logger.info("%s converting pages %s-%s/%s ref=%s", kind, start, end, total, reference_no)
+                doc = converter.convert(source=file_path, page_range=(start, end)).document
+                pages.extend(_page_markdowns(doc, end - start + 1, start=start))
+                del doc  # drop this batch's page images before the next one, that is the point
+        else:
+            doc = converter.convert(source=file_path).document
+            total = _page_count(doc, file_path, pdf_fallback=(kind == "parse_pdf"))
+            pages = _page_markdowns(doc, total)
 
         parsed_pages: list[dict] = []
         ok = 0

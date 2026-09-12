@@ -13,7 +13,9 @@ import types
 
 def _stub_deps():
     """pydantic + langchain_openai, enough for schemas.py and create_checklist.py to import."""
-    if "pydantic" not in sys.modules:
+    try:
+        import pydantic  # noqa: F401  — real one when installed, so model validation is real
+    except ImportError:
         pyd = types.ModuleType("pydantic")
 
         class _BaseModel:
@@ -40,7 +42,12 @@ from intelligence.subagents.specialized.document_agents import (  # noqa: E402
     _keywords,
     agents_for_tender_type,
 )
-from intelligence.subagents.specialized.prompts import AGENT_PROMPTS, SYNTHESIS_PROMPT  # noqa: E402
+from intelligence.subagents.specialized.prompts import (  # noqa: E402
+    _BUCKET_FOR_AGENT,
+    AGENT_PROMPTS,
+    SYNTHESIS_PROMPT,
+)
+from intelligence.subagents.specialized.query_schemas import QueryItem  # noqa: E402
 from intelligence.subagents.specialized.schemas import (  # noqa: E402
     AGENT_OUTPUT_MODELS,
     BaseSynthesizeDocumentOutput,
@@ -102,6 +109,34 @@ def test_prompt_has_no_format_placeholders():
             assert "{agent}" not in prompt and "{task_description}" not in prompt, agent
 
 
+def test_document_prompts_carry_their_bucket():
+    # the three live document agents end on a bare "Documents:" header; the bucket is appended there
+    for agent, bucket in _BUCKET_FOR_AGENT.items():
+        documents = list(dict.fromkeys(d for section in TENDER_DOCUMENTS[bucket].values() for d in section))
+        prompt = AGENT_PROMPTS[agent]
+        listed = [line for line in prompt.splitlines() if line.startswith("- ")]
+        # equality, not containment: a stale dedupe shows up here and nowhere else
+        assert listed == [f"- {d}" for d in documents], f"{agent} listed {len(listed)} of {len(documents)}"
+        assert prompt.index("Documents:") < prompt.index(f"- {documents[0]}"), f"{agent} list is above its header"
+
+
+def test_document_prompts_do_not_leak_across_buckets():
+    assert "- GeM Seller Registration" in AGENT_PROMPTS["gem_document_agent"]
+    assert "- GeM Seller Registration" not in AGENT_PROMPTS["non_gem_document_agent"]
+    assert "- GeM Seller Registration" not in AGENT_PROMPTS["common_document_agent"]
+    assert "- Certificate of Incorporation" in AGENT_PROMPTS["common_document_agent"]
+    assert "- Certificate of Incorporation" not in AGENT_PROMPTS["gem_document_agent"]
+    assert "- Notice Inviting Tender (NIT)" in AGENT_PROMPTS["non_gem_document_agent"]
+    assert "- Notice Inviting Tender (NIT)" not in AGENT_PROMPTS["gem_document_agent"]
+
+
+def test_query_item_carries_the_join_key():
+    # execute_search groups hits by `document`; without the field it was always ""
+    assert QueryItem(document="PAN Card", query="q", keywords=["k"]).model_dump()["document"] == "PAN Card"
+    # defaulted, so the parameter agents (reverse_auction, basic_details, emd_agent) still validate
+    assert QueryItem(query="q", keywords=["k"]).model_dump()["document"] == ""
+
+
 def test_keyword_derivation():
     assert "Trade License" in _keywords("Trade Licence"), "spelling twin missing"
     assert "MOA" in _keywords("Memorandum of Association (MOA)")
@@ -133,8 +168,17 @@ def test_checklist_is_deterministic_without_an_llm():
     ids = [t["task_id"] for t in checklist]
     assert len(set(ids)) == len(ids), "task_id must be unique — run_task keys agent_results by it"
     assert {t["agent"] for t in create_checklist({"reference_no": "T", "tender_type": "NON_GEM"})["checklist"]} == {"reverse_auction", "basic_details", "emd_agent", "non_gem_document_agent", "common_document_agent"}
-    assert len(create_checklist({"reference_no": "T"})["checklist"]) == 5  # default NON_GEM
     assert len(create_checklist({"reference_no": "T", "tender_type": "gem"})["checklist"]) == 5
+
+
+def test_unknown_tender_type_runs_common_only():
+    # worker/job.py normalizes an unrecognized type to "" and documents it as unknown. Asserting
+    # non-GeM would ask the tender 76 non-GeM-only document questions on no evidence.
+    for unknown in ("", "   ", "garbage", None):
+        agents = {t["agent"] for t in create_checklist({"reference_no": "T", "tender_type": unknown})["checklist"]}
+        assert agents == {"reverse_auction", "basic_details", "emd_agent", "common_document_agent"}, unknown
+        assert "non_gem_document_agent" not in agents, unknown
+        assert "gem_document_agent" not in agents, unknown
 
 
 if __name__ == "__main__":
@@ -144,7 +188,11 @@ if __name__ == "__main__":
     test_707_pairs_with_unique_join_keys()
     test_prompt_matches_the_checklist()
     test_prompt_has_no_format_placeholders()
+    test_document_prompts_carry_their_bucket()
+    test_document_prompts_do_not_leak_across_buckets()
+    test_query_item_carries_the_join_key()
     test_keyword_derivation()
     test_routing_is_bucket_plus_common()
     test_checklist_is_deterministic_without_an_llm()
+    test_unknown_tender_type_runs_common_only()
     print("document agents self-check passed")

@@ -1,5 +1,6 @@
 import logging
 
+from intelligence.state import is_done
 from intelligence.subagents.specialized.state import SpecializedState
 from intelligence.subagents.search.graph import get_search_graph
 
@@ -66,6 +67,9 @@ def execute_search(state: SpecializedState) -> dict:
 
     results: list[dict] = []
     sources: list[dict] = []
+    # ponytail: the search subgraph's status and error used to be written and never read, so a dead
+    # qdrant looked identical to a tender that mentions nothing
+    failures: list[str] = []
     # ponytail: no cross-pair dedup. Once `document` is the join key it is actively wrong — document 7
     # would lose its best chunk because document 2 claimed it first. Two documents citing the same
     # clause is the correct answer. Within a pair, distinct hit ids already guarantee uniqueness.
@@ -73,10 +77,18 @@ def execute_search(state: SpecializedState) -> dict:
         query = payload["query"]
         if isinstance(out, Exception):
             logger.error("specialized search item failed query=%r error=%s ref=%s", query[:80], out, reference_no)
+            failures.append(f"{type(out).__name__}: {out}")
             continue
-        valid = sorted(out.get("valid") or [], key=lambda x: x.get("rerank_score", 0), reverse=True)
-        solid = [v for v in valid if v.get("rerank_score", 0) > 0]
-        top = ((solid if solid else valid[:1]) if valid else [])[:_HITS_PER_DOC]
+        if not is_done(out.get("status")):
+            err = out.get("error") or out.get("status") or "search failed"
+            logger.error("specialized search failed query=%r status=%s error=%s ref=%s", query[:80], out.get("status"), err, reference_no)
+            failures.append(str(err))
+            continue
+        # ponytail: rerank already applied the relevance threshold and sorted by score. Re-filtering
+        # on rerank_score > 0 here dropped the entire qdrant fallback path — those items have no
+        # rerank_score, defaulted to 0, and every document silently lost half its hits.
+        # rerank owns relevance, this owns per-document capping.
+        top = (out.get("valid") or [])[:_HITS_PER_DOC]
         for v in top:
             source_file, page = _provenance(v)
             results.append({"document": document, "query": query, "keywords": payload["keywords"], "hit": v})
@@ -85,15 +97,26 @@ def execute_search(state: SpecializedState) -> dict:
                     "chunk_id": v.get("id"),
                     "document": document,
                     "text": (v.get("text") or "")[:_SOURCE_TEXT_CHARS],
-                    "score": v.get("rerank_score"),
+                    # None on the qdrant fallback path, so fall back to the qdrant score
+                    "score": v.get("rerank_score") if v.get("rerank_score") is not None else v.get("score"),
                     "source_file": source_file,
                     "page": page,
                 }
             )
-        logger.info("specialized search item done query=%r valid=%s kept=%s ref=%s", query[:80], len(valid), len(top), reference_no)
+        logger.info("specialized search item done query=%r valid=%s kept=%s ref=%s", query[:80], len(out.get("valid") or []), len(top), reference_no)
 
     # ponytail: checklist order preserved so synthesize groups deterministically; the cap is a guard,
     # not a filter — sorting by score here would scramble the document grouping.
+    if failures and not results:
+        err = f"every search failed ({len(failures)}/{len(plan)}), first: {failures[0]}"
+        logger.error("execute_search ref=%s %s", reference_no, err)
+        return {"search_results": [], "sources": [], "status": "failed", "error": err}
+    if failures:
+        logger.warning("execute_search partial ref=%s failed=%s/%s first=%s", reference_no, len(failures), len(plan), failures[0])
+
+    if len(results) > _MAX_RESULTS:
+        # a cap that hides what it removed reads as full coverage in the logs
+        logger.warning("search results capped ref=%s kept=%s dropped=%s", reference_no, _MAX_RESULTS, len(results) - _MAX_RESULTS)
     results = results[:_MAX_RESULTS]
     sources = sources[:_MAX_RESULTS]
     logger.info("specialized execute_search done ref=%s pairs=%s results=%s", reference_no, len(plan), len(results))

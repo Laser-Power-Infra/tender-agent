@@ -3,6 +3,20 @@ import re
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 
 
+def normalize_tender_type(v: str | None) -> str:
+    """Absorb GeM / gem_only / NON-GEM / nonGem. Never raises.
+
+    An unknown value must not nack the job: the common documents are correct for either bucket, so a
+    bad type costs coverage, while a ValidationError costs the whole analysis.
+    """
+    s = re.sub(r"[^a-z]", "", str(v or "").lower())
+    if s in ("gem", "gemonly"):
+        return "gem"
+    if s in ("nongem", "nongemonly"):
+        return "non_gem"
+    return ""
+
+
 class IngestionFile(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
@@ -58,6 +72,8 @@ class IngestionJob(BaseModel):
     job_id: str = Field(validation_alias=AliasChoices("job_id", "jobId", "jobID", "id"))
     reference_no: str = Field(validation_alias=AliasChoices("reference_no", "referenceNo"))
     files: list[IngestionFile]
+    # carried through to the intelligence job. "" means unknown — see IntelligenceJob.tender_type
+    tender_type: str = Field(default="", validation_alias=AliasChoices("tender_type", "tenderType", "type"))
 
     @field_validator("job_id")
     @classmethod
@@ -74,6 +90,11 @@ class IngestionJob(BaseModel):
         if not v:
             raise ValueError("referenceNo must be non-empty")
         return v
+
+    @field_validator("tender_type", mode="before")
+    @classmethod
+    def check_tender_type(cls, v: str | None) -> str:
+        return normalize_tender_type(v)
 
     @field_validator("files")
     @classmethod
@@ -116,15 +137,5 @@ class IntelligenceJob(BaseModel):
 
     @field_validator("tender_type", mode="before")
     @classmethod
-    def normalize_tender_type(cls, v: str | None) -> str:
-        """Absorb GeM / gem_only / NON-GEM / nonGem. Never raises.
-
-        An unknown value must not nack the job: the 39 common sections are correct for either bucket,
-        so a bad type costs coverage, while a ValidationError costs the whole analysis.
-        """
-        s = re.sub(r"[^a-z]", "", str(v or "").lower())
-        if s in ("gem", "gemonly"):
-            return "gem"
-        if s in ("nongem", "nongemonly"):
-            return "non_gem"
-        return ""
+    def check_tender_type(cls, v: str | None) -> str:
+        return normalize_tender_type(v)
