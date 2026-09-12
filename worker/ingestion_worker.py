@@ -64,8 +64,11 @@ def _safe_ack_nack(ch, method, ack: bool):
         logger.warning("Ack/nack failed (connection lost) delivery_tag=%s error=%s", method.delivery_tag, e)
 
 
-def _publish_intelligence(reference_no: str):
-    tender_type = "GEM" if "gem" in reference_no.lower() else "NON_GEM"
+def _publish_intelligence(reference_no: str, tender_type: str = ""):
+    # ponytail: was `"GEM" if "gem" in reference_no.lower() else "NON_GEM"` — a substring test that
+    # called any reference containing "gem" (GEMINI, NONGEM-…) a GeM tender, and asserted every other
+    # reference was definitively non-GeM. The type now comes from the job; "" means unknown, which
+    # runs the common documents only.
     payload = json.dumps({"referenceNo": reference_no, "tender_type": tender_type})
     conn = None
     try:
@@ -104,7 +107,7 @@ def handle_message(ch, method, properties, body):
                 _safe_ack_nack(ch, method, ack=False)
                 return
             logger.info("Job %s file done: %s -> %s", job.job_id, result.get("status"), result.get("file_path"))
-        _publish_intelligence(job.reference_no)
+        _publish_intelligence(job.reference_no, job.tender_type)
         _safe_ack_nack(ch, method, ack=True)
     except ValidationError as e:
         logger.error("Validation failed body=%r errors=%s", body, e.errors())

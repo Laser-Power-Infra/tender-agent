@@ -10,7 +10,7 @@ class DocumentItem(BaseModel):
 
 
 class SynthesisResult(BaseModel):
-    summary: str = Field(description="concise answer for task")
+    summary: str = Field(default="", description="concise answer for task")
     findings: list[str] = Field(default_factory=list, description="key findings")
     evidence: list[str] = Field(default_factory=list, description="supporting evidence snippets")
     documents: list[DocumentItem] = Field(default_factory=list, description="accumulated documents with required flag")
@@ -27,7 +27,7 @@ class BaseSynthesizeDocumentItem(BaseModel):
 
 
 class BaseSynthesizeDocumentOutput(BaseModel):
-    results: list[BaseSynthesizeDocumentItem] = Field(description="array of synthesize document items")
+    results: list[BaseSynthesizeDocumentItem] = Field(default_factory=list, description="array of synthesize document items")
 
 
 class CompanyComplianceOutput(BaseSynthesizeDocumentOutput):
@@ -48,7 +48,7 @@ class Evidence(BaseModel):
 
 class ReverseAuctionOutput(BaseModel):
     # usable output
-    applicable: bool = Field(description="reverse auction applicable")
+    applicable: bool = Field(default=False, description="reverse auction applicable")
     clauses: list[str] = Field(default_factory=list, description="extracted clauses")
     summary: str = Field(default="", description="concise summary")
     # base evidence
@@ -91,6 +91,10 @@ class CommonDocumentOutput(BaseModel):
     summary: str = Field(default="", description="concise summary")
     evidence: Evidence = Field(default_factory=Evidence, description="grounding evidence")
 
+
+# ponytail: every top-level field above is defaulted so synthesize_final_result can always
+# produce the declared shape, even from a zero-hit or fallback result. Row-level fields in
+# BaseSynthesizeDocumentItem stay required — the llm must fill those when it emits a row.
 
 # ponytail: single source for output schema, agent -> model
 AGENT_OUTPUT_MODELS: dict[str, type[BaseModel]] = {

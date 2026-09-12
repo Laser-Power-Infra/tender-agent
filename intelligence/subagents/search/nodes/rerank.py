@@ -13,6 +13,9 @@ logger = logging.getLogger(__name__)
 _model = None
 _lock = threading.Lock()
 
+# ponytail: hits handed to one document's synthesis. execute_search takes _HITS_PER_DOC=2 of these.
+_MAX_VALID = 5
+
 
 def _get_model():
     global _model
@@ -63,20 +66,24 @@ def rerank(state: SearchState) -> dict:
 
         valid = [r for r in reranked if r.get("is_valid")]
         valid.sort(key=lambda x: x.get("rerank_score", 0), reverse=True)
-        valid = valid[:5]
-
-        if not valid:
-            # fallback: take top if max score > -1 (weak relevance)
-            top = sorted(reranked, key=lambda x: x.get("rerank_score", 0), reverse=True)
-            if top and top[0].get("rerank_score", 0) > -1:
-                valid = top[:3]
-                logger.info("rerank fallback weak threshold query=%r valid=%s", query[:80], len(valid))
-
-        logger.info("rerank done query=%r hits=%s valid=%s", query[:80], len(hits), len(valid))
+        # ponytail: the weak-relevance fallback (top[:3] when the best logit merely cleared -1) is
+        # gone. Every synthesis prompt says "ground every value ONLY in the provided search_results",
+        # and that fallback handed the model chunks this reranker had just judged irrelevant.
+        # synthesize renders an empty document as "(no chunks retrieved)", which is the honest answer.
+        dropped = len(reranked) - len(valid)
+        valid = valid[:_MAX_VALID]
+        logger.info(
+            "rerank done query=%r hits=%s valid=%s below_threshold=%s capped=%s",
+            query[:80], len(hits), len(valid), dropped, max(0, len(reranked) - dropped - _MAX_VALID),
+        )
         return {"reranked": reranked, "valid": valid, "status": "reranked" if valid else "no_valid", "error": None}
     except Exception as e:
         err = f"{type(e).__name__}: {e}"
         logger.error("rerank failed query=%r error=%s", query[:80], err, exc_info=True)
-        # ponytail: fallback to qdrant score top5 on model failure
-        valid = sorted(hits, key=lambda x: x.get("score", 0), reverse=True)[:5]
-        return {"reranked": hits, "valid": valid, "status": "rerank_fallback", "error": err}
+        # ponytail: model down, fall back to qdrant order. Carries the same keys as the success path
+        # — an item without rerank_score was silently filtered out downstream by execute_search and
+        # cost every document half its hits. reason is what tells the caller these are not reranked.
+        ordered = sorted(hits, key=lambda x: x.get("score") or 0, reverse=True)[:_MAX_VALID]
+        valid = [{**h, "rerank_score": None, "is_valid": True, "reason": "qdrant-score-fallback"} for h in ordered]
+        logger.warning("rerank fallback to qdrant order query=%r hits=%s kept=%s", query[:80], len(hits), len(valid))
+        return {"reranked": valid, "valid": valid, "status": "rerank_fallback", "error": err}

@@ -9,10 +9,12 @@ from ingestion.nodes.parse_document import _PAGE_BREAK, _page_markdowns
 class FakeDoc:
     """Counts export calls so the test can prove the fast path does exactly one."""
 
-    def __init__(self, pages, supports_placeholder=True):
+    def __init__(self, pages, supports_placeholder=True, first_page=1):
         self.pages = pages
         self.supports_placeholder = supports_placeholder
+        self.first_page = first_page  # a page_range batch keeps the original page numbers
         self.calls = 0
+        self.asked = []
 
     def export_to_markdown(self, page_no=None, page_break_placeholder=None):
         self.calls += 1
@@ -22,7 +24,8 @@ class FakeDoc:
             return page_break_placeholder.join(self.pages)
         if page_no is None:
             raise AssertionError("caller must pass page_no or page_break_placeholder")
-        return self.pages[page_no - 1]
+        self.asked.append(page_no)
+        return self.pages[page_no - self.first_page]
 
 
 def test_single_pass_splits_every_page():
@@ -55,6 +58,15 @@ def test_empty_page_is_none_not_blank():
     assert out[1][0] is None, "a whitespace-only page must normalize to None so it is marked failed"
 
 
+def test_fallback_uses_real_page_numbers_in_a_batch():
+    # a page_range=(6,7) convert returns a doc whose pages are numbered 6 and 7,
+    # so the per-page fallback must ask for those, not 1 and 2
+    doc = FakeDoc(["six", "seven"], supports_placeholder=False, first_page=6)
+    out = _page_markdowns(doc, 2, start=6)
+    assert [md for md, _ in out] == ["six", "seven"], out
+    assert doc.asked == [6, 7], doc.asked
+
+
 def test_page_break_not_left_in_output():
     doc = FakeDoc(["one", "two"])
     for md, _ in _page_markdowns(doc, 2):
@@ -66,5 +78,6 @@ if __name__ == "__main__":
     test_falls_back_when_placeholder_unsupported()
     test_falls_back_on_segment_count_mismatch()
     test_empty_page_is_none_not_blank()
+    test_fallback_uses_real_page_numbers_in_a_batch()
     test_page_break_not_left_in_output()
     print("page markdown self-check passed")

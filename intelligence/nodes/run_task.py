@@ -1,12 +1,9 @@
 import logging
 
-from intelligence.state import IntelligenceState
+from intelligence.state import DEGRADED_STATUSES, IntelligenceState, is_done
 from intelligence.subagents.specialized.graph import get_specialized_graph
 
 logger = logging.getLogger(__name__)
-
-# statuses the subagent can return that still count as a completed task
-_OK = ("success", "searched", "fallback", "partial", "no_results")
 
 
 def run_task(state: IntelligenceState) -> dict:
@@ -48,8 +45,12 @@ def run_task(state: IntelligenceState) -> dict:
             "errors": [{"node": "run_task", "task_id": task_id, "agent": agent, "error": err}],
         }
 
-    # ponytail: no_results is an answer, not a failure
-    done = status in _OK
+    # ponytail: no_results is an answer, not a failure. A degraded status (fallback/partial) is
+    # neither — the task finished, but not by the intended path, so it is recorded as done and
+    # surfaced separately rather than silently counted as a clean success.
+    done = is_done(status)
+    if status in DEGRADED_STATUSES:
+        logger.warning("run_task degraded task_id=%s agent=%s status=%s error=%s", task_id, agent, status, envelope["error"])
     logger.info("run_task done task_id=%s agent=%s status=%s sources=%s", task_id, agent, status, len(envelope["sources"]))
     return {
         "checklist": [{**task, "status": "success" if done else "failed", "error": None if done else envelope["error"]}],
