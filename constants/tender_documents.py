@@ -80,107 +80,86 @@ TENDER_DOCUMENTS = {
     # ============================================================
 
     "non_gem_only": {
+    "tender_notice_documents": [
+      "Notice Inviting Tender (NIT)",
+      "Request for Proposal (RFP)",
+      "Request for Quotation (RFQ)",
+      "Tender Document",
+      "Bid Document",
+      "Tender Schedule",
+      "Tender Specifications",
+      "Special Conditions of Contract",
+      "General Conditions of Contract",
+      "Instructions to Bidders",
+      "Corrigendum",
+      "Pre-bid Clarification",
+      "Pre-bid Meeting Documents"
+    ],
 
-        "tender_notice_documents": [
-            "Notice Inviting Tender (NIT)",
-            "Request for Proposal (RFP)",
-            "Request for Quotation (RFQ)",
-            "Tender Document",
-            "Bid Document",
-            "Tender Schedule",
-            "Tender Specifications",
-            "Special Conditions of Contract",
-            "General Conditions of Contract",
-            "Instructions to Bidders",
-            "Corrigendum",
-            "Pre-bid Clarification",
-            "Pre-bid Meeting Documents"
-        ],
+    "non_gem_portal_registration": [
+      "CPPP/eProcure Registration",
+      "State eProcurement Portal Registration",
+      "Department-specific Portal Registration",
+      "Portal Bidder Enrollment",
+      "Portal DSC Registration",
+      "Portal Vendor Registration"
+    ],
 
-        "non_gem_portal_registration": [
-            "CPPP/eProcure Registration",
-            "State eProcurement Portal Registration",
-            "Department-specific Portal Registration",
-            "Portal Bidder Enrollment",
-            "Portal DSC Registration",
-            "Portal Vendor Registration"
-        ],
+    "tender_fee": [
+      "Tender Fee Payment Receipt",
+      "Tender Fee Demand Draft",
+      "Tender Fee Banker's Cheque",
+      "Tender Fee Online Payment Proof",
+      "Tender Fee Exemption Certificate",
+      "Tender Fee Exemption Declaration"
+    ],
 
-        "tender_fee": [
-            "Tender Fee Payment Receipt",
-            "Tender Fee Demand Draft",
-            "Tender Fee Banker's Cheque",
-            "Tender Fee Online Payment Proof",
-            "Tender Fee Exemption Certificate",
-            "Tender Fee Exemption Declaration"
-        ],
+    "offline_emd_formats": [
+      "EMD Demand Draft",
+      "EMD Bank Guarantee",
+      "EMD Fixed Deposit Receipt",
+      "EMD Banker's Cheque",
+      "EMD Treasury Challan",
+      "Physical EMD Submission Proof",
+      "EMD Original Instrument",
+      "EMD Exemption Certificate"
+    ],
 
-        "offline_emd_formats": [
-            "EMD Demand Draft",
-            "EMD Bank Guarantee",
-            "EMD Fixed Deposit Receipt",
-            "EMD Banker's Cheque",
-            "EMD Treasury Challan",
-            "Physical EMD Submission Proof",
-            "EMD Original Instrument",
-            "EMD Exemption Certificate"
-        ],
+    "non_gem_bid_submission": [
+      "Technical Bid Cover",
+      "Financial Bid Cover",
+      "Pre-Qualification Bid",
+      "Technical Bid",
+      "Commercial Bid",
+      "Financial Bid",
+      "Unpriced BOQ",
+      "Priced BOQ",
+      "Physical Bid Documents",
+      "Hard Copy Submission",
+      "Original Document Submission",
+      "Bid Submission Receipt"
+    ],
 
-        "non_gem_bid_submission": [
-            "Technical Bid Cover",
-            "Financial Bid Cover",
-            "Pre-Qualification Bid",
-            "Technical Bid",
-            "Commercial Bid",
-            "Financial Bid",
-            "Unpriced BOQ",
-            "Priced BOQ",
-            "Physical Bid Documents",
-            "Hard Copy Submission",
-            "Original Document Submission",
-            "Bid Submission Receipt"
-        ],
-
-        "tender_specific_annexures": [
-            "Tender Annexure A",
-            "Tender Annexure B",
-            "Tender Annexure C",
-            "Tender Annexure D",
-            "Tender Annexure E",
-            "Technical Format",
-            "Financial Format",
-            "Eligibility Form",
-            "Experience Form",
-            "Turnover Form",
-            "Manufacturer Form",
-            "Local Content Form",
-            "Bidder Information Form",
-            "Company Information Form",
-            "Tender Checklist",
-            "Price Schedule",
-            "Department-specific Forms"
-        ],
-
-        "works_tender_registration": [
-            "CPWD Contractor Registration",
-            "PWD Contractor Registration",
-            "Department Contractor Enlistment",
-            "Contractor Class Registration",
-            "Contractor Category Registration",
-            "Department-specific Contractor Registration"
-        ],
-
-        "site_and_physical_submission": [
-            "Site Inspection Certificate",
-            "Site Visit Certificate",
-            "Pre-Bid Site Visit Certificate",
-            "Physical Document Submission Receipt",
-            "Original Document Verification",
-            "Sample Submission",
-            "Product Sample Approval",
-            "Physical Demonstration Certificate"
-        ]
-    },
+    "tender_specific_annexures": [
+      "Tender Annexure A",
+      "Tender Annexure B",
+      "Tender Annexure C",
+      "Tender Annexure D",
+      "Tender Annexure E",
+      "Technical Format",
+      "Financial Format",
+      "Eligibility Form",
+      "Experience Form",
+      "Turnover Form",
+      "Manufacturer Form",
+      "Local Content Form",
+      "Bidder Information Form",
+      "Company Information Form",
+      "Tender Checklist",
+      "Price Schedule",
+      "Department-specific Forms"
+    ]
+  },
 
 
     # ============================================================
@@ -188,705 +167,152 @@ TENDER_DOCUMENTS = {
     # Can be required in BOTH GeM and Non-GeM tenders
     # ============================================================
 
-    "common": {
+   "common": {
+    "company_registration": [
+      "Certificate of Incorporation",
+      "Company PAN Card",
+      "GST Registration Certificate",
+      "Udyam Registration Certificate",
+      "Memorandum of Association (MOA)",
+      "PAN Card",
+      "Trade Licence",
+      "Factory Licence"
+    ],
 
-        "company_legal_identity": [
-            "Certificate of Incorporation",
-            "CIN",
-            "Company PAN Card",
-            "GST Registration Certificate",
-            "TAN",
-            "Registered Office Address Proof",
-            "Business Address Proof",
-            "Udyam Registration Certificate",
-            "DPIIT Startup Recognition Certificate",
-            "Partnership Deed",
-            "LLP Agreement",
-            "Memorandum of Association (MOA)",
-            "Articles of Association (AOA)",
-            "Certificate of Commencement of Business",
-            "Shops and Establishment Registration",
-            "Professional Tax Registration",
-            "State-specific Business Registration",
-            "Name Change Certificate",
-            "Registered Office Change Certificate",
-            "Company Master Data"
-        ],
+    "authorization": [
+      "Authorization Letter",
+      "Power of Attorney",
+      "Board Resolution for Authorized Signatory",
+      "PAN Card of Power of Attorney Holder"
+    ],
 
-        "ownership_and_constitution": [
-            "List of Directors",
-            "List of Partners",
-            "Shareholding Pattern",
-            "Beneficial Ownership Declaration",
-            "DIN Details",
-            "Promoter Declaration",
-            "Director Declaration",
-            "Ownership Declaration",
-            "Conflict of Interest Declaration",
-            "Related Party Declaration"
-        ],
+    "tax_compliance": [
+      "Income Tax Return",
+      "GST Returns",
+      "GSTR-3B Returns",
+      "Professional Tax Registration Certificate",
+      "Latest Professional Tax Challan",
+      "ESI Registration Certificate",
+      "Latest ESI Challan",
+      "PF Registration Certificate",
+      "Latest PF Challan"
+    ],
 
-        "authorization_and_signatory": [
-            "Board Resolution for Tender Participation",
-            "Board Resolution for Authorized Signatory",
-            "Power of Attorney",
-            "Special Power of Attorney",
-            "General Power of Attorney",
-            "Authorization Letter",
-            "Bid Submission Authorization",
-            "Contract Signing Authorization",
-            "Negotiation Authorization",
-            "Authorized Signatory Declaration",
-            "Specimen Signature",
-            "Company Seal/Stamp"
-        ],
+    "financial": [
+      "Audited Financial Statements",
+      "CA Certified Turnover Certificate",
+      "Net Worth Certificate",
+      "Bank Solvency Certificate",
+      "Annual Turnover Certificate",
+      "Balance Sheet",
+      "Profit and Loss Statement"
+    ],
 
-        "authorized_person_kyc": [
-            "Aadhaar Card",
-            "PAN Card",
-            "Passport",
-            "Driving Licence",
-            "Authorized Person Photograph",
-            "Designation Proof",
-            "Identity Proof of Authorized Signatory",
-            "Address Proof of Authorized Signatory",
-            "Official Email ID",
-            "Official Mobile Number"
-        ],
+    "banking": [
+      "Cancelled Cheque",
+      "Bank Account Proof",
+      "Bank Mandate"
+    ],
 
-        "income_tax": [
-            "Company PAN",
-            "Income Tax Return",
-            "ITR Acknowledgement",
-            "ITR Computation",
-            "Income Tax Assessment Order",
-            "Income Tax Compliance Declaration",
-            "Tax Compliance Certificate",
-            "Tax Clearance Certificate",
-            "Tax Exemption Certificate",
-            "Form 26AS",
-            "AIS/TIS Statement"
-        ],
+    "experience": [
+      "Purchase Order",
+      "Supply Order",
+      "Performance Certificate",
+      "Experience Certificate"
+    ],
 
-        "gst": [
-            "GST Registration Certificate",
-            "GSTIN Details",
-            "GST Amendment Certificate",
-            "GSTR-1 Returns",
-            "GSTR-3B Returns",
-            "GSTR-9 Annual Return",
-            "GSTR-9C Reconciliation Statement",
-            "GST Payment Challans",
-            "GST Compliance Proof",
-            "GST LUT",
-            "GST Exemption Certificate",
-            "GST Undertaking",
-            "State GST Registration Certificates"
-        ],
+    "quality_and_product": [
+      "BIS Licence",
+      "ISI Mark Licence",
+      "ISO 9001 Certificate",
+      "Type Test Certificate",
+      "Routine Test Certificate",
+      "Product Test Report",
+      "Technical Datasheet",
+      "Product Catalogue",
+      "ISO Certificate",
+      "BIS Certificate",
+      "Quality Assurance Plan"
+    ],
 
-        "financial_documents": [
-            "Audited Balance Sheet",
-            "Profit and Loss Statement",
-            "Cash Flow Statement",
-            "Notes to Accounts",
-            "Audited Financial Statements",
-            "Standalone Financial Statements",
-            "Consolidated Financial Statements",
-            "Statutory Auditor Report",
-            "Directors Report",
-            "Annual Report",
-            "CA Certified Turnover Certificate",
-            "Average Annual Turnover Certificate",
-            "Turnover Certificate with UDIN",
-            "Net Worth Certificate",
-            "Positive Net Worth Certificate",
-            "Profitability Certificate",
-            "Solvency Certificate",
-            "Bank Solvency Certificate",
-            "Financial Capacity Certificate",
-            "Working Capital Certificate",
-            "Credit Facility Certificate",
-            "Bank Reference Letter",
-            "Banker Certificate"
-        ],
+    "oem_authorization": [
+      "OEM Authorization Certificate",
+      "Manufacturer Authorization Letter",
+      "Dealership Certificate",
+      "Distributor Certificate"
+    ],
 
-        "banking": [
-            "Cancelled Cheque",
-            "Bank Account Proof",
-            "Bank Statement",
-            "Bank Certificate",
-            "Banker Certificate",
-            "Account Holder Confirmation",
-            "IFSC Details",
-            "Bank Account Number",
-            "NEFT/RTGS Details",
-            "Payment Mandate",
-            "ECS/NACH Mandate"
-        ],
+    "local_content": [
+      "Country of Origin Declaration",
+      "Make in India Declaration",
+      "Local Content Declaration"
+    ],
 
-        "digital_signature": [
-            "Class 3 Digital Signature Certificate (DSC)",
-            "DSC Token",
-            "Authorized Signatory DSC",
-            "DSC Validity Details"
-        ],
+    "msme_startup": [
+      "MSME/Udyam Certificate",
+      "DPIIT Startup Recognition Certificate"
+    ],
 
-        "experience": [
-            "Purchase Order",
-            "Work Order",
-            "Contract Agreement",
-            "Letter of Award",
-            "Supply Order",
-            "Delivery Order",
-            "Invoice",
-            "Tax Invoice",
-            "Completion Certificate",
-            "Work Completion Certificate",
-            "Performance Certificate",
-            "Client Certificate",
-            "Installation Certificate",
-            "Commissioning Certificate",
-            "Acceptance Certificate",
-            "Satisfactory Performance Certificate",
-            "Payment Receipt",
-            "Payment Proof",
-            "Experience Certificate",
-            "Similar Work Experience Certificate"
-        ],
+    "bid_security": [
+      "EMD Payment Receipt",
+      "Bank Guarantee for EMD",
+      "EMD Exemption Certificate",
+      "Bid Security Declaration"
+    ],
 
-        "government_experience": [
-            "Central Government Work Order",
-            "Central Government Completion Certificate",
-            "State Government Work Order",
-            "State Government Completion Certificate",
-            "PSU Work Order",
-            "PSU Completion Certificate",
-            "Autonomous Body Work Order",
-            "Autonomous Body Completion Certificate",
-            "Defence Department Experience Certificate",
-            "Railways Experience Certificate",
-            "CPWD Experience Certificate",
-            "Municipal Corporation Experience Certificate",
-            "Government Hospital Experience Certificate",
-            "Government University Experience Certificate",
-            "Government Department Experience Certificate"
-        ],
+    "technical_bid": [
+      "Technical Compliance Sheet",
+      "Compliance Matrix",
+      "Technical Datasheet",
+      "Deviation Statement"
+    ],
 
-        "technical_capability": [
-            "Technical Capability Statement",
-            "Technical Profile",
-            "Technical Staff List",
-            "Employee Qualification Certificates",
-            "Employee Experience Certificates",
-            "CVs/Resumes of Technical Staff",
-            "Engineer Certificates",
-            "Professional Licences",
-            "Technical Manpower Declaration",
-            "Organization Chart",
-            "Machinery List",
-            "Equipment List",
-            "Tools List",
-            "Infrastructure Details",
-            "Factory Details",
-            "Warehouse Details",
-            "Testing Facility Details",
-            "R&D Facility Details",
-            "Production Capacity Certificate",
-            "Technical Support Infrastructure Details"
-        ],
+    "financial_bid": [
+      "Priced BOQ",
+      "Price Schedule",
+      "Financial Bid"
+    ],
 
-        "licenses_and_regulatory": [
-            "Trade Licence",
-            "Factory Licence",
-            "Shops and Establishment Licence",
-            "Professional Licence",
-            "State-specific Business Licence",
-            "Electrical Contractor Licence",
-            "Electrical Supervisor Licence",
-            "Electrical Inspector Approval",
-            "EPFO Registration",
-            "ESIC Registration",
-            "Labour Licence",
-            "Contract Labour Licence",
-            "Professional Tax Registration",
-            "Industry-specific Licence"
-        ],
+    "undertakings": [
+      "Tender Acceptance Undertaking",
+      "No Deviation Undertaking",
+      "Warranty Undertaking",
+      "Delivery Commitment",
+      "Non-Blacklisting Declaration",
+      "Conflict of Interest Declaration"
+    ],
 
-        "industry_specific_licenses": [
-            "FSSAI Licence",
-            "Drug Licence",
-            "CDSCO Registration",
-            "Medical Device Licence",
-            "Medical Device Registration",
-            "Manufacturing Licence",
-            "Import Licence",
-            "GMP Certificate",
-            "WHO-GMP Certificate",
-            "Product Approval",
-            "Product Registration",
-            "Clinical/Test Certificates",
-            "Pollution Control Board Consent",
-            "Environmental Clearance",
-            "Hazardous Waste Authorization",
-            "E-Waste Registration",
-            "Battery Waste Registration",
-            "Plastic Waste Registration"
-        ],
+    "post_award": [
+      "Performance Bank Guarantee",
+      "Contract Agreement",
+      "Insurance Documents"
+    ],
 
-        "quality_certifications": [
-            "ISO 9001 Certificate",
-            "ISO 14001 Certificate",
-            "ISO 45001 Certificate",
-            "ISO 27001 Certificate",
-            "ISO 13485 Certificate",
-            "ISO 22000 Certificate",
-            "BIS Certificate",
-            "BIS Licence",
-            "ISI Mark Licence",
-            "CE Certificate",
-            "RoHS Certificate",
-            "FCC Certificate",
-            "NABL Test Report",
-            "Calibration Certificate",
-            "Quality Assurance Plan",
-            "Quality Control Procedure",
-            "Inspection Procedure",
-            "Type Test Certificate",
-            "Routine Test Certificate"
-        ],
+    "delivery": [
+      "Delivery Challan",
+      "Tax Invoice",
+      "E-Way Bill",
+      "Inspection Report",
+      "Test Certificate",
+      "Warranty Certificate"
+    ],
 
-        "make_in_india_local_content": [
-            "Make in India Declaration",
-            "Local Content Declaration",
-            "Local Content Calculation",
-            "Class-I Local Supplier Declaration",
-            "Class-II Local Supplier Declaration",
-            "Country of Origin Declaration",
-            "Manufacturing Location Declaration",
-            "Local Value Addition Certificate",
-            "CA Certificate for Local Content",
-            "Local Content Self Certification",
-            "Procurement Policy Undertaking"
-        ],
+    "import_export": [
+      "Import Export Code (IEC)",
+      "Country of Origin Certificate",
+      "Bill of Entry"
+    ],
 
-        "msme": [
-            "Udyam Registration Certificate",
-            "Udyam Registration Number",
-            "MSME Classification Certificate",
-            "MSE Declaration",
-            "NSIC Certificate",
-            "NSIC Registration",
-            "MSME Exemption Declaration",
-            "MSE Preference Declaration",
-            "EMD Exemption Certificate",
-            "Tender Fee Exemption Declaration",
-            "Experience Exemption Declaration",
-            "Turnover Exemption Declaration"
-        ],
+    "product_technical": [
+      "Guaranteed Technical Particulars (GTP)"
+    ],
 
-        "startup": [
-            "DPIIT Startup Recognition Certificate",
-            "Startup India Certificate",
-            "Startup Registration Details",
-            "Startup Eligibility Declaration",
-            "Startup Experience Exemption Request",
-            "Startup Turnover Exemption Request",
-            "Startup Supporting Documents",
-            "Startup Self Declaration"
-        ],
-
-        "emd_bid_security": [
-            "EMD Payment Receipt",
-            "EMD Transaction Proof",
-            "Demand Draft",
-            "Bank Guarantee for EMD",
-            "Fixed Deposit Receipt (FDR)",
-            "Banker's Cheque",
-            "Treasury Challan",
-            "EMD Exemption Certificate",
-            "MSE EMD Exemption Proof",
-            "Startup EMD Exemption Proof",
-            "Bid Security Declaration",
-            "Bid Security Undertaking"
-        ],
-
-        "technical_bid": [
-            "Technical Bid",
-            "Technical Compliance Sheet",
-            "Compliance Matrix",
-            "Unpriced BOQ",
-            "Technical Datasheet",
-            "Product Catalogue",
-            "Product Specification",
-            "Deviation Statement",
-            "No Deviation Certificate",
-            "Technical Drawings",
-            "Design Documents",
-            "Methodology",
-            "Work Plan",
-            "Implementation Plan",
-            "Project Schedule",
-            "Deployment Plan",
-            "Manpower Deployment Plan",
-            "SLA Acceptance",
-            "Scope Compliance Statement",
-            "Technical Proposal"
-        ],
-
-        "commercial_financial_bid": [
-            "Financial Bid",
-            "Priced BOQ",
-            "Price Schedule",
-            "Rate Schedule",
-            "Commercial Compliance",
-            "Tax Breakup",
-            "GST Details",
-            "Freight Charges",
-            "Installation Charges",
-            "Warranty Charges",
-            "AMC Charges",
-            "Discount Declaration",
-            "Price Validity Declaration",
-            "Commercial Offer",
-            "Financial Proposal"
-        ],
-
-        "tender_acceptance_undertakings": [
-            "Tender Acceptance Letter",
-            "Tender Acceptance Undertaking",
-            "Terms and Conditions Acceptance",
-            "GCC Acceptance",
-            "SCC Acceptance",
-            "ATC Acceptance",
-            "No Deviation Undertaking",
-            "Technical Compliance Undertaking",
-            "Price Validity Undertaking",
-            "Delivery Commitment",
-            "Warranty Undertaking",
-            "Performance Undertaking",
-            "Confidentiality Undertaking",
-            "Integrity Undertaking",
-            "Non-Collusion Undertaking",
-            "Contract Acceptance Undertaking"
-        ],
-
-        "blacklisting_debarment_litigation": [
-            "Non-Blacklisting Declaration",
-            "Non-Debarment Declaration",
-            "No-Ban Declaration",
-            "No-Suspension Declaration",
-            "Litigation Declaration",
-            "Arbitration Declaration",
-            "Pending Case Declaration",
-            "Criminal Case Declaration",
-            "Conflict of Interest Declaration",
-            "Insolvency Declaration",
-            "Bankruptcy Declaration",
-            "No Proceedings Declaration"
-        ],
-
-        "integrity_anti_corruption": [
-            "Integrity Pact",
-            "Integrity Agreement",
-            "Anti-Bribery Declaration",
-            "Anti-Corruption Undertaking",
-            "Conflict of Interest Declaration",
-            "Non-Collusion Declaration",
-            "Ethical Business Declaration",
-            "Fraud and Corruption Undertaking",
-            "Code of Conduct Declaration"
-        ],
-
-        "financial_capacity": [
-            "Bank Solvency Certificate",
-            "Net Worth Certificate",
-            "Working Capital Certificate",
-            "Financial Capacity Certificate",
-            "Bid Capacity Calculation",
-            "Existing Work-in-Hand Statement",
-            "Current Commitments Statement",
-            "Current Order Book",
-            "Available Financial Capacity Statement",
-            "Banker Certificate",
-            "Credit Facility Letter"
-        ],
-
-        "machinery_infrastructure": [
-            "Machinery Ownership Documents",
-            "Machinery Lease Documents",
-            "Equipment List",
-            "Equipment Ownership Proof",
-            "Equipment Fitness Certificates",
-            "Equipment Calibration Certificates",
-            "Vehicle Documents",
-            "Factory Photographs",
-            "Factory Registration",
-            "Warehouse Proof",
-            "Office Infrastructure Proof",
-            "Testing Laboratory Details",
-            "Production Capacity Certificate",
-            "Manufacturing Capacity Declaration"
-        ],
-
-        "human_resources": [
-            "Employee List",
-            "Technical Staff List",
-            "Qualification Certificates",
-            "Experience Certificates",
-            "CVs",
-            "Engineer Certificates",
-            "Professional Registration Certificates",
-            "Manpower Deployment Plan",
-            "Manpower Undertaking",
-            "EPF Records",
-            "ESIC Records",
-            "Labour Licence",
-            "Staff Availability Declaration"
-        ],
-
-        "oem": [
-            "OEM Declaration",
-            "OEM Certificate",
-            "Manufacturer Authorization Certificate",
-            "Manufacturer Authorization Letter",
-            "Manufacturing Licence",
-            "Factory Registration",
-            "Factory Address Proof",
-            "Manufacturer Profile",
-            "Manufacturing Details",
-            "Brand Ownership Proof",
-            "Trademark Certificate",
-            "Trademark Registration",
-            "Patent Documents",
-            "BIS Licence",
-            "ISO Certificates",
-            "Product-specific Statutory Licences",
-            "Quality Certifications",
-            "Product Test Reports"
-        ],
-
-        "dealer_distributor_reseller": [
-            "OEM Authorization Certificate",
-            "Manufacturer Authorization Letter",
-            "Dealership Certificate",
-            "Distributor Certificate",
-            "Authorized Reseller Certificate",
-            "Channel Partner Certificate",
-            "OEM Undertaking",
-            "OEM Support Letter",
-            "OEM Warranty Undertaking",
-            "Authorization Validity Proof",
-            "OEM Contact Details",
-            "OEM PAN",
-            "OEM GSTIN",
-            "OEM Registration Certificate"
-        ],
-
-        "product_documents": [
-            "Product Catalogue",
-            "Product Datasheet",
-            "Technical Specification",
-            "Product Brochure",
-            "Product Photographs",
-            "Model Number",
-            "Part Number",
-            "Brand Details",
-            "Manufacturer Details",
-            "Country of Origin",
-            "HSN Code",
-            "GST Rate",
-            "Warranty Details",
-            "Installation Requirements",
-            "Product Dimensions",
-            "Product Weight",
-            "Packaging Details",
-            "Product Test Report",
-            "Laboratory Test Report",
-            "Calibration Certificate",
-            "Quality Certificate",
-            "Product Certificate",
-            "Safety Certificate",
-            "Performance Certificate"
-        ],
-
-        "service_tenders": [
-            "Company Profile",
-            "Service Portfolio",
-            "Similar Service Experience",
-            "Client References",
-            "SLA Acceptance",
-            "Service Methodology",
-            "Manpower Deployment Plan",
-            "Staffing Plan",
-            "Employee Qualification Certificates",
-            "Employee Experience Certificates",
-            "Background Verification Process",
-            "Replacement Policy",
-            "Escalation Matrix",
-            "Service Level Commitments",
-            "Helpdesk/Support Details",
-            "Business Continuity Plan",
-            "Disaster Recovery Plan"
-        ],
-
-        "it_software": [
-            "OEM Authorization",
-            "Software Licence",
-            "Product Licence",
-            "Technical Architecture",
-            "Security Architecture",
-            "Data Protection Declaration",
-            "Information Security Policy",
-            "ISO 27001 Certificate",
-            "SOC Report",
-            "CERT-In Compliance Declaration",
-            "Data Residency Declaration",
-            "Source Code Escrow Agreement",
-            "SLA",
-            "Technical Support Model",
-            "Uptime Commitment",
-            "Disaster Recovery Plan",
-            "Business Continuity Plan",
-            "Cybersecurity Declaration",
-            "Penetration Testing Report"
-        ],
-
-        "works_construction": [
-            "Contractor Registration",
-            "Contractor Enlistment Certificate",
-            "CPWD Registration",
-            "PWD Registration",
-            "Contractor Class/Category Registration",
-            "Work Experience Certificates",
-            "Work Completion Certificates",
-            "Machinery List",
-            "Technical Staff List",
-            "Labour Licence",
-            "EPFO Registration",
-            "ESIC Registration",
-            "GST Registration",
-            "PAN",
-            "Financial Statements",
-            "Turnover Certificate",
-            "Solvency Certificate",
-            "Bank Certificate",
-            "Bidding Capacity Certificate",
-            "Existing Commitments Statement",
-            "Site Inspection Certificate",
-            "Safety Plan",
-            "Method Statement",
-            "Construction Schedule",
-            "Quality Assurance Plan"
-        ],
-
-        "consortium_joint_venture": [
-            "Consortium Agreement",
-            "Joint Venture Agreement",
-            "Lead Member Authorization",
-            "Power of Attorney",
-            "Authorization from Each Member",
-            "Member PAN",
-            "Member GST",
-            "Member Incorporation Documents",
-            "Member Financial Statements",
-            "Member Experience Certificates",
-            "Member Turnover Certificates",
-            "JV Participation Structure",
-            "JV Responsibility Matrix",
-            "Lead Member Undertaking",
-            "Consortium Member Undertaking"
-        ],
-
-        "foreign_global_tenders": [
-            "Foreign Certificate of Incorporation",
-            "Foreign Business Registration",
-            "Apostilled Documents",
-            "Legalized Documents",
-            "Foreign Tax Registration",
-            "Authorized Representative Documents",
-            "Indian Agent Authorization",
-            "Import Licence",
-            "Country of Origin Certificate",
-            "Manufacturer Authorization",
-            "Foreign Financial Statements",
-            "Equivalent Experience Certificates",
-            "Foreign Bank Documents",
-            "IEC",
-            "DGFT Documents",
-            "Customs Compliance Documents"
-        ],
-
-        "import_export": [
-            "Import Export Code (IEC)",
-            "Import Licence",
-            "Manufacturer Authorization",
-            "Country of Origin Certificate",
-            "Bill of Entry",
-            "Customs Documents",
-            "Import Compliance Documents",
-            "BIS Import Compliance",
-            "DGFT Registration",
-            "Export Licence",
-            "Shipping Documents",
-            "Customs Clearance Documents"
-        ],
-
-        "post_award": [
-            "Letter of Acceptance",
-            "Contract Agreement",
-            "Performance Security",
-            "Performance Bank Guarantee",
-            "Security Deposit",
-            "Contract Agreement Stamp Paper",
-            "Insurance Documents",
-            "Indemnity Bond",
-            "Advance Payment Guarantee",
-            "Retention Money/Security",
-            "Bank Guarantee",
-            "Delivery Schedule",
-            "Deployment Plan",
-            "Warranty Undertaking",
-            "AMC Undertaking",
-            "Compliance Certificates"
-        ],
-
-        "delivery_execution": [
-            "Delivery Challan",
-            "Commercial Invoice",
-            "Tax Invoice",
-            "E-Invoice",
-            "E-Way Bill",
-            "Transport Document",
-            "Lorry Receipt (LR)",
-            "Goods Receipt (GR)",
-            "Installation Report",
-            "Commissioning Report",
-            "Inspection Report",
-            "Test Certificate",
-            "Acceptance Certificate",
-            "Warranty Certificate",
-            "Training Certificate",
-            "Completion Certificate",
-            "Performance Certificate"
-        ],
-
-        "general_declarations": [
-            "Country of Origin Declaration",
-            "Local Content Declaration",
-            "Make in India Declaration",
-            "Conflict of Interest Declaration",
-            "Non-Collusion Declaration",
-            "Non-Blacklisting Declaration",
-            "Non-Debarment Declaration",
-            "No Litigation Declaration",
-            "No Insolvency Declaration",
-            "No Bankruptcy Declaration",
-            "No Criminal Proceedings Declaration",
-            "Anti-Bribery Declaration",
-            "Integrity Declaration",
-            "Data Confidentiality Undertaking",
-            "Confidentiality Undertaking",
-            "Procurement Policy Compliance Declaration"
-        ]
-    }
+    "manufacturing_capability": [
+      "Annual Manufacturing Capacity",
+      "Factory Layout Plan",
+      "List of Machinery",
+      "List of Testing Equipment",
+      "List of Manpower"
+    ]
+  }
 }

@@ -27,7 +27,7 @@ AGENT_PROMPTS: dict[str, str] = {
     "basic_details": """
         You are a Tender Basic Details Query Generator.
 
-        For each of the 10 parameters below, output one object:
+        For each of the 11 parameters below, output one object:
         - "parameter": exact name as given, unchanged (join key — never rephrase)
         - "query": one question to check this parameter against the tender document
         - "keywords": 4-6 terms/phrasings likely to appear in the tender for this
@@ -39,24 +39,25 @@ AGENT_PROMPTS: dict[str, str] = {
         - Output only the structured JSON array. No prose, no explanation.
 
         Parameters:
-        1. Date of Submission — the last date/time for bid submission
-        2. Tender Fees — the fee (if any) to purchase/access the tender document
-        3. Document Fees — the fee (if any) for physical/hard copy tender
+        1. Organization — the issuing organization/department/company that floated the tender
+        2. Date of Submission — the last date/time for bid submission
+        3. Tender Fees — the fee (if any) to purchase/access the tender document
+        4. Document Fees — the fee (if any) for physical/hard copy tender
         documents, if distinct from tender fee
-        4. Delivery Location — the place(s) where goods/services must be
+        5. Delivery Location — the place(s) where goods/services must be
         delivered
-        5. Delivery Period — the timeline within which delivery/completion is
+        6. Delivery Period — the timeline within which delivery/completion is
         required after order/contract award
-        6. Inspection Required For What — what items/stages require inspection,
+        7. Inspection Required For What — what items/stages require inspection,
         and by whom (pre-dispatch, third-party, consignee, etc.)
-        7. Portal Payment Required — whether payments (tender fee, EMD, etc.)
+        8. Portal Payment Required — whether payments (tender fee, EMD, etc.)
         must be made through the procurement portal itself vs. offline
-        8. Bid Validity Days — the number of days the bid must remain valid from
+        9. Bid Validity Days — the number of days the bid must remain valid from
         the date of opening
-        9. Exemptions to the Bidder — any exemptions available to categories of
+        10. Exemptions to the Bidder — any exemptions available to categories of
         bidders (MSME, Startup, Udyam, SSI, women/SC-ST entrepreneurs, etc.)
         on fees, EMD, or eligibility
-        10. Forms or Annexures Mentioned — any specific forms/annexures/formats
+        11. Forms or Annexures Mentioned — any specific forms/annexures/formats
             the bidder must fill and submit (e.g. Annexure I, Form A, Bid Format)
 
         """,
@@ -196,11 +197,17 @@ SYNTHESIS_PROMPT: dict[str, str] = {
         infer beyond the text, or fill in a value that isn't explicitly stated.
 
         Output structure (must match BasicDetailsOutput):
-        - "title": str — tender title
-        - "reference_no": str — reference number
         - "organization": str — issuing organization
-        - "eligibility": list[str] — eligibility criteria
-        - "important_dates": list[str] — key dates
+        - "date_of_submission": str — last date/time for bid submission
+        - "tender_fees": str — fee to purchase/access tender document
+        - "document_fees": str — fee for hard copy if distinct
+        - "delivery_location": str — delivery place
+        - "delivery_period": str — delivery/completion timeline
+        - "inspection_required": str — what requires inspection and by whom
+        - "portal_payment_required": str — portal vs offline payment
+        - "bid_validity_days": str — validity days from opening
+        - "exemptions": list[str] — exemptions to bidder categories
+        - "forms_annexures": list[str] — forms/annexures to submit
         - "summary": str — concise summary
         - "evidence": {output:str, found_document:str, documentId:str(externalId from metadata), pageNo:int}
 

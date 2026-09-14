@@ -10,6 +10,7 @@ requires-python = ">=3.12,<3.13"
 dependencies = [
     "alembic>=1.19.1",
     "docling>=2.124.0",
+    "fastapi>=0.141.1",
     "fastembed>=0.8.0",
     "google-api-python-client>=2.200.0",
     "google-auth>=2.57.1",
@@ -31,6 +32,7 @@ dependencies = [
     # transitive via docling + sentence-transformers, declared so the CPU index below binds to them
     "torch>=2.0",
     "torchvision>=0.15",
+    "uvicorn>=0.52.4",
 ]
 
 [tool.uv]

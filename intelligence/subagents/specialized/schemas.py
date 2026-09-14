@@ -56,11 +56,17 @@ class ReverseAuctionOutput(BaseModel):
 
 
 class BasicDetailsOutput(BaseModel):
-    title: str = Field(default="", description="tender title")
-    reference_no: str = Field(default="", description="tender reference")
     organization: str = Field(default="", description="issuing organization")
-    eligibility: list[str] = Field(default_factory=list, description="eligibility criteria")
-    important_dates: list[str] = Field(default_factory=list, description="key dates")
+    date_of_submission: str = Field(default="", description="last date/time for bid submission")
+    tender_fees: str = Field(default="", description="fee to purchase/access tender document")
+    document_fees: str = Field(default="", description="fee for hard copy if distinct from tender fee")
+    delivery_location: str = Field(default="", description="delivery location for goods/services")
+    delivery_period: str = Field(default="", description="delivery/completion timeline after award")
+    inspection_required: str = Field(default="", description="what requires inspection and by whom")
+    portal_payment_required: str = Field(default="", description="portal vs offline payment requirement")
+    bid_validity_days: str = Field(default="", description="bid validity days from opening")
+    exemptions: list[str] = Field(default_factory=list, description="exemptions to bidder categories")
+    forms_annexures: list[str] = Field(default_factory=list, description="forms/annexures to submit")
     summary: str = Field(default="", description="concise summary")
     evidence: Evidence = Field(default_factory=Evidence, description="grounding evidence")
 
