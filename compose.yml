@@ -15,6 +15,11 @@ services:
       - model-cache:/models
     networks:
       - infra
+
+    deploy:
+      resources:
+        limits:
+          cpus: "3.0"
     # ponytail: no depends_on — postgres/qdrant/rabbitmq external at 192.168.1.190, add services when self-hosted
 
   intelligence-agent:

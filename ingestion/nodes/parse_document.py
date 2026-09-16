@@ -198,27 +198,120 @@ def parse_docx(state: IngestionState) -> dict:
 
 # ---------- xlsx ----------
 
+def _cell_str(v) -> str:
+    # numbers: integral floats render as ints, "1000.0" -> "1000"
+    if isinstance(v, float) and v.is_integer():
+        return str(int(v))
+    return str(v).strip() if v is not None else ""
+
+
+def _is_numeric(v: str) -> bool:
+    try:
+        float(v.replace(",", ""))
+        return True
+    except ValueError:
+        return False
+
+
 def _rows_to_markdown(rows: list[list]) -> str:
-    # filter empty rows and stringify
+    # stringify, keep rows with any non-empty value
     cleaned: list[list[str]] = []
     for r in rows:
-        vals = [(str(v).strip() if v is not None else "") for v in r]
-        # keep row if any non-empty
-        if any(v for v in vals):
-            # escape pipe and newline
-            vals = [v.replace("|", "\\|").replace("\n", " ") for v in vals]
+        vals = [_cell_str(v) for v in r]
+        if any(vals):
             cleaned.append(vals)
     if not cleaned:
         return ""
-    # trim trailing empty cols
-    max_cols = max(len(r) for r in cleaned)
-    for r in cleaned:
-        while len(r) < max_cols:
-            r.append("")
-    header = "| " + " | ".join(cleaned[0]) + " |"
-    sep = "| " + " | ".join(["---"] * max_cols) + " |"
-    body = ["| " + " | ".join(r) + " |" for r in cleaned[1:]]
-    return "\n".join([header, sep] + body) if body else header + "\n" + sep
+
+    # skip type-descriptor rows: every non-empty cell matches NUMBER/TEXT/DATE( #)
+    import re
+
+    _TYPE_RE = re.compile(r"^(NUMBER|TEXT|DATE)( ?#)?$")
+
+    def _is_type_row(r: list[str]) -> bool:
+        vals = [v for v in r if v]
+        return bool(vals) and all(_TYPE_RE.match(v) for v in vals)
+
+    cleaned = [r for r in cleaned if not _is_type_row(r)]
+
+    # skip all-numeric rows (column index rows)
+    cleaned = [r for r in cleaned if not (any(r) and all(_is_numeric(v) for v in r if v))]
+
+    # header = widest row (most non-empty cells); rows before it are prose.
+    # cap every row to the header width so stray far-right cells (formula caches,
+    # template junk beyond the real columns) never widen the table.
+    widths = [sum(1 for v in r if v) for r in cleaned]
+    header_idx = max(range(len(widths)), key=widths.__getitem__)
+    if widths[header_idx] < 2:
+        return "\n\n".join(" ".join(v for v in r if v) for r in cleaned)
+    cap = max(i for i, v in enumerate(cleaned[header_idx]) if v) + 1
+    cleaned = [r[:cap] for r in cleaned]
+
+    # drop all-empty columns within the table region (header gaps, template dead zones)
+    used = [any(r[c] for r in cleaned[header_idx:] if c < len(r)) for c in range(cap)]
+    if any(used):
+        keep_idx = [c for c, u in enumerate(used) if u]
+        cleaned = [[(r[c] if c < len(r) else "") for c in keep_idx] for r in cleaned]
+        cap = len(keep_idx)
+
+    prose_lines = [" ".join(v for v in r if v) for r in cleaned[:header_idx]]
+    prose_block = "\n\n".join(prose_lines)
+
+    # escape pipe and newline in table cells
+    def _cell(v: str) -> str:
+        return v.replace("|", "\\|").replace("\n", " ")
+
+    table_rows = cleaned[header_idx:]
+    padded = [r + [""] * (cap - len(r)) for r in table_rows]
+    header = "| " + " | ".join(_cell(v) for v in padded[0]) + " |"
+    sep = "| " + " | ".join(["---"] * cap) + " |"
+    body = ["| " + " | ".join(_cell(v) for v in r) + " |" for r in padded[1:]]
+    table = "\n".join([header, sep] + body) if body else header + "\n" + sep
+
+    return prose_block + "\n\n" + table if prose_block else table
+
+
+def _parse_xls_legacy(state: IngestionState, file_path: str, document_name: str | None, reference_no, document_tag, document_id) -> dict:
+    """Legacy BIFF .xls via xlrd. Mirrors the openpyxl sheet-per-page loop."""
+    try:
+        import xlrd
+
+        wb = xlrd.open_workbook(filename=str(file_path))
+        sheets = wb.sheets()
+        total = len(sheets) if sheets else 1
+        parsed_pages: list[dict] = []
+        ok = 0
+        for idx, sh in enumerate(sheets, start=1):
+            meta = _base_meta({**state, "document_name": document_name}, idx, total)
+            try:
+                rows = [sh.row_values(r) for r in range(sh.nrows)]
+                markdown = _rows_to_markdown(rows)
+                if sh.name:
+                    markdown = f"## {sh.name}\n\n" + markdown if markdown else f"## {sh.name}"
+                text = markdown
+                status = "parsed" if markdown and markdown.strip() else "failed"
+                err = None if status == "parsed" else "empty sheet"
+                if status == "parsed":
+                    ok += 1
+                    logger.info("xls sheet parsed idx=%s/%s name=%s len=%s ref=%s", idx, total, sh.name, len(markdown), reference_no)
+                else:
+                    logger.warning("xls sheet %s empty ref=%s", idx, reference_no)
+                parsed_pages.append({"page_no": idx, "markdown": markdown or None, "text": text or None, "metadata": meta, "status": status, "error": err})
+            except Exception as e:
+                err = f"{type(e).__name__}: {e}"
+                logger.error("xls sheet %s failed ref=%s error=%s", idx, reference_no, err, exc_info=True)
+                parsed_pages.append({"page_no": idx, "markdown": None, "text": None, "metadata": meta, "status": "failed", "error": err})
+        if not parsed_pages:
+            meta = _base_meta({**state, "document_name": document_name}, 1, 1)
+            parsed_pages.append({"page_no": 1, "markdown": None, "text": None, "metadata": meta, "status": "failed", "error": "empty workbook"})
+            total = 1
+            ok = 0
+        status_final = "parsed" if ok == total and total > 0 else "partial" if ok > 0 else "failed"
+        return {"total_pages": total, "parsed_pages": parsed_pages, "status": status_final, "error": None if status_final != "failed" else "all sheets failed"}
+    except Exception as e:
+        err = f"{type(e).__name__}: {e}"
+        logger.error("parse_xls failed ref=%s error=%s", reference_no, err, exc_info=True)
+        return {"total_pages": 0, "parsed_pages": [], "status": "failed", "error": err}
 
 
 def parse_xlsx(state: IngestionState) -> dict:
@@ -237,6 +330,10 @@ def parse_xlsx(state: IngestionState) -> dict:
         err = f"file_path missing: {file_path}"
         logger.error("%s ref=%s tag=%s", err, reference_no, document_tag)
         return {"total_pages": 0, "parsed_pages": [], "status": "failed", "error": err}
+
+    # legacy BIFF .xls: openpyxl cannot open it, xlrd reads it natively
+    if Path(file_path).suffix.lower() == ".xls":
+        return _parse_xls_legacy(state, file_path, document_name, reference_no, document_tag, document_id)
 
     # try openpyxl first
     try:
