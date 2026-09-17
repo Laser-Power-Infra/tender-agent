@@ -35,6 +35,8 @@ _PAYLOAD_INDEXES = [
     ("pageNo", PayloadSchemaType.INTEGER),
     ("chunk_idx", PayloadSchemaType.INTEGER),
     ("chunkIdx", PayloadSchemaType.INTEGER),
+    # item-knowledge collection filter (field absent on tender_chunks, index is a no-op there)
+    ("category", PayloadSchemaType.KEYWORD),
 ]
 
 # ponytail: memo per (collection, dims). the check is 16 round-trips, it does not belong in the request path.

@@ -10,7 +10,7 @@ _llm = None
 _lock = threading.Lock()
 
 
-def get_llm():
+def get_llm(chat_model:str =settings.chat_model ):
     global _llm
     if _llm is not None:
         return _llm
@@ -23,5 +23,5 @@ def get_llm():
             # every gpt-5* non-chat model (chat_models/base.py validate_temperature), so the calls
             # ran at the default anyway. Pass reasoning_effort="none" if determinism is worth losing
             # reasoning for; leaving the dead argument in only implied a guarantee that was not there.
-            _llm = ChatOpenAI(model=settings.chat_model, api_key=api_key, timeout=120, max_retries=3)
+            _llm = ChatOpenAI(model=chat_model, api_key=api_key, timeout=120, max_retries=3)
     return _llm

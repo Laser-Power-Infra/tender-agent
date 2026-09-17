@@ -1,57 +1,12 @@
 import logging
-import threading
 
-from langchain_openai import OpenAIEmbeddings
 from qdrant_client.http.models import FieldCondition, Filter, MatchValue, Prefetch, SparseVector
 
-from core.config import settings
 from intelligence.subagents.search.state import SearchState
+from vector.embeddings import get_dense, get_sparse
 from vector.qdrant import ensure_collection, qdrant
 
-try:
-    from fastembed import SparseTextEmbedding
-except ImportError:
-    SparseTextEmbedding = None  # type: ignore
-
 logger = logging.getLogger(__name__)
-
-# ponytail: locked lazy singletons — searches now run in parallel, an unlocked race loads BM25 twice
-_dense_embedder = None
-_sparse_embedder = None
-_sparse_ready = False
-_lock = threading.Lock()
-
-
-def _get_dense():
-    global _dense_embedder
-    if _dense_embedder is not None:
-        return _dense_embedder
-    with _lock:
-        if _dense_embedder is None:
-            api_key = (settings.openai_api_key or "").strip() if settings.openai_api_key else ""
-            if not api_key:
-                raise ValueError("OPENAI_API_KEY missing")
-            # ponytail: SDK retries 429 with backoff, no hand-rolled decorator
-            _dense_embedder = OpenAIEmbeddings(model=settings.embedding_model, api_key=api_key, max_retries=5)
-    return _dense_embedder
-
-
-def _get_sparse():
-    global _sparse_embedder, _sparse_ready
-    if _sparse_ready:
-        return _sparse_embedder
-    with _lock:
-        if not _sparse_ready:
-            if SparseTextEmbedding is None:
-                logger.warning("fastembed not installed, dense-only fallback")
-            else:
-                try:
-                    _sparse_embedder = SparseTextEmbedding(model_name="Qdrant/bm25")
-                except Exception as e:
-                    logger.warning("sparse BM25 init failed, dense-only fallback: %s", e)
-                    _sparse_embedder = None
-            _sparse_ready = True
-    return _sparse_embedder
 
 
 def hybrid_search(state: SearchState) -> dict:
@@ -66,7 +21,7 @@ def hybrid_search(state: SearchState) -> dict:
 
     # embed query
     try:
-        dense = _get_dense().embed_query(query)
+        dense = get_dense().embed_query(query)
     except Exception as e:
         err = f"dense embed failed: {type(e).__name__}: {e}"
         logger.error(err, exc_info=True)
@@ -75,7 +30,7 @@ def hybrid_search(state: SearchState) -> dict:
     # sparse from query + keywords — ponytail: single text, no keyword-weighted boost until recall gap
     sparse_vec = None
     try:
-        sparse_emb = _get_sparse()
+        sparse_emb = get_sparse()
         if sparse_emb is not None:
             text = query + (" " + " ".join(keywords) if keywords else "")
             raw = list(sparse_emb.embed([text]))[0]
