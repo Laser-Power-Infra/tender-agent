@@ -10,6 +10,8 @@ class IngestionState(TypedDict, total=False):
     reference_no:str
     document_tag:str
     document_name:str|None
+    # payload key under which chunk content is stored, default "text"
+    content_key:str
 
     #local document
     working_dir:str

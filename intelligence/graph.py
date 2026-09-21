@@ -7,6 +7,7 @@ from intelligence.nodes.analyze_request import analyze_request
 from intelligence.nodes.create_checklist import create_checklist
 from intelligence.nodes.run_task import run_task
 from intelligence.nodes.synthesize_final_result import synthesize_final_result
+from intelligence.nodes.send_webhook import send_webhook
 from intelligence.state import IntelligenceState
 
 logger = logging.getLogger(__name__)
@@ -43,11 +44,13 @@ def build_intelligence_graph(checkpointer=None):
     graph.add_node("create_checklist", create_checklist)
     graph.add_node("run_task", run_task)
     graph.add_node("synthesize_final_result", synthesize_final_result)
+    graph.add_node("send_webhook", send_webhook)
     graph.add_conditional_edges(START, route_start, ["analyze_request", "create_checklist"])
     graph.add_edge("analyze_request", "create_checklist")
     graph.add_conditional_edges("create_checklist", fan_out_tasks, ["run_task", "synthesize_final_result"])
     graph.add_edge("run_task", "synthesize_final_result")
-    graph.add_edge("synthesize_final_result", END)
+    graph.add_edge("synthesize_final_result", "send_webhook")
+    graph.add_edge("send_webhook", END)
     compiled = graph.compile(checkpointer=checkpointer) if checkpointer else graph.compile()
     # ponytail: depth is now fixed at 4 supersteps whatever the checklist length, so the limit is only a runaway guard
     compiled = compiled.with_config(recursion_limit=25, max_concurrency=_TASK_CONCURRENCY)

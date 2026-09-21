@@ -1,100 +1,101 @@
-const abcd = {
-  tender_id: "12261609A",
+const abcd = (final = {
+  tender_id: "2026_HBC_546595_1",
   sections: {
     reverse_auction: {
-      applicable: True,
-      clauses: [
-        "i. If the number of tenders qualified for bulk order/ Award of Contract is less than 3, RA shall not be done and tender will be decided on the basis of initial price offer(s).",
-        "ii. MSE Criteria: All MSEs found qualified for Bulk Order/ Award of contract but could not be selected for Reverse Auction as per criteria stipulated above, but are within the range of 15% of lowest initial price bid shall be permitted to participate in the Reverse Auction, irrespective of their inter- se ranking on the basis of initial price bid. Such MSEs shall be over and above the number of vendors selected for Reverse Auction.",
-        "Financial Bids in single currency/ parameter only shall be allowed.",
-        "Each tender for Reverse Auction shall clearly specify essential technical and commercial parameters in a transparent manner. No deviation to such essential Technical and Commercial conditions shall be permitted to vendors in the electronic bid form.",
-        "a. Procuring authority shall decide the bid evaluation criteria in the tender itself, whether the evaluation shall be item wise, consignee wise or overall tender value wise.",
-      ],
-      summary:
-        "Tender includes Reverse Auction procedures; RA excluded if fewer than three qualified tenders; eligible MSEs within 15% of lowest bid may join; single-currency financial bids required.",
-      evidence: {
-        output:
-          "Reverse auction procedures present; RA omitted if <3 qualified bidders; MSEs within 15% may join beyond selected vendors.",
-        found_document: "100492140_TD_299_NKhB.pdf",
-        documentId: "",
-        pageNo: 43,
-      },
+      applicable: False,
+      clauses: [],
+      summary: "No relevant context found",
+      evidence: { output: "", found_document: "", documentId: "", pageNo: 0 },
     },
     basic_details: {
-      organization:
-        "PCMM, Northern Railway acting for and on behalf of The President of India",
-      date_of_submission: "12/10/2026 11:00 Hrs",
-      tender_fees: "",
+      organization: "",
+      date_of_submission: "",
+      tender_fees: "Rs. 5,000 plus GST at 18% or applicable, payable online.",
       document_fees: "",
       delivery_location: "",
       delivery_period:
-        "For ex-stock offers dispatch to be effected within 7 days of receipt of order",
-      inspection_required:
-        "Inspection at manufacturer's premises by TPI agencies or consignee's representative; final inspection by consignee on receipt",
+        "Time and date of delivery are stipulated in Annexure B to Schedule D of the contract or purchase order.",
+      inspection_required: "",
       portal_payment_required:
-        "EMD/payment processes and Bid Securing Declaration handled via IREPS Portal",
-      bid_validity_days: "",
-      exemptions: [],
+        "Tender document fee must be paid online through the e-procurement portal; EMD may be paid through RTGS/NEFT or offline bank guarantee.",
+      bid_validity_days:
+        "120 days from technical bid opening or 90 days from price bid opening, whichever is later.",
+      exemptions: ["Tender Fee exemption", "EMD exemption"],
       forms_annexures: [
-        "Bid Securing Declaration (proforma on bidders interface)",
-        "Performance Statement template on 'Techno-commercial Bid Details' form",
-        "Annexure-3",
-        "Attach Documents template of 'Techno-commercial Bid Details' form",
+        "Prescribed tender form",
+        "Signed terms and conditions of contract",
+        "Annexure A",
+        "Annexure B",
+        "Technical offer documents",
+        "Qualifying requirements",
+        "Technical specifications",
+        "Schedule of deliveries",
       ],
       summary:
-        "PCMM, Northern Railway (for President of India) invites e-tender No.12261609A closing 12/10/2026 11:00; e-bids only. Includes delivery schedule, inspection rules, and IREPS EMD provisions.",
+        "Tender document fee is Rs. 5,000 plus applicable GST, payable online. Bids remain valid for the later of 120 technical-bid days or 90 price-bid days.",
       evidence: {
         output:
-          "Tender 12261609A by PCMM Northern Railway closes 12/10/2026 11:00; e-tenders only.",
-        found_document: "doc1017761436207271347.pdf",
+          "Tender fee, online payment method, bid validity, and required annexures are specified.",
+        found_document: "Tender-Document-XLPE.pdf",
         documentId: "",
-        pageNo: 1,
+        pageNo: 5,
       },
     },
     emd_agent: {
-      emdAmount: "",
-      emdPaymentMode:
-        "Online via IREPS Payment Gateway (payment gateway facility on IREPS portal)",
-      emdExemption: [
-        "Limited Tender Cases (including Single Tender and Global Limited Tender) up to Rs. 25 Lakh",
-        "Micro & Small Enterprises (MSEs) registered with agencies mentioned at Para 2",
-      ],
+      emdAmount: "Rs. 41,00,000/-",
+      emdPaymentMode: "RTGS/NEFT or offline payment via Bank Guarantee",
+      emdExemption: [],
       emdValidity: "",
       summary:
-        "EMD must be paid online via IREPS payment gateway. Exemptions: limited tenders up to Rs.25 Lakh and MSEs registered as per Para 2. EMD amount and validity not stated in provided text.",
+        "EMD of Rs. 41,00,000/- is payable through RTGS/NEFT or offline Bank Guarantee; no EMD exemption or validity is stated.",
       evidence: {
         output:
-          "EMD to be submitted only through IREPS payment gateway; exemptions include limited tenders ≤ Rs.25 Lakh and registered MSEs.",
-        found_document: "100492140_TD_299_NKhB.pdf",
+          "EMD requires Rs. 41,00,000/- through RTGS/NEFT or offline Bank Guarantee.",
+        found_document: "Tender-Document-XLPE.pdf",
         documentId: "",
-        pageNo: 23,
+        pageNo: 5,
+      },
+    },
+    non_gem_document_agent: {
+      documents: [
+        "Prescribed Tender Form",
+        "Signed Terms and Conditions of Contract",
+        "Tender Annexure A",
+        "Tender Annexure B",
+        "Technical Bid",
+        "Priced BOQ",
+        "EMD Bank Guarantee or approved EMD payment proof",
+        "Tender Fee Online Payment Proof",
+      ],
+      summary:
+        "The tender requires the prescribed and signed tender forms, annexures, technical offer, completed price schedule, tender fee proof, and EMD documentation.",
+      evidence: {
+        output:
+          "Bidders must submit signed tender forms, contract terms, Annexures A and B, technical offer, and completed online payments.",
+        found_document: "Tender-Document-XLPE.pdf",
+        documentId: "2026_HBC_546595_1",
+        pageNo: 7,
       },
     },
     common_document_agent: {
       documents: [
-        "Manufacturer Authorization Letter",
-        "Udyam Registration Certificate",
-        "GST Registration Certificate",
-        "Bank Mandate",
-        "Bank Account Proof",
-        "EMD Payment Receipt",
-        "Technical Datasheet",
-        "Product Catalogue",
-        "Local Content Declaration",
-        "Make in India Declaration",
-        "Performance Certificate",
+        "Priced BOQ",
+        "Price Schedule",
+        "Financial Bid",
+        "Bank Guarantee for EMD",
+        "Performance Bank Guarantee",
       ],
       summary:
-        "Tender requires manufacturer authorization, UDYAM/MSME proof, GST details, bank mandate/account proof, EMD, technical brochures/datasheets, local content/make-in-India declarations, and performance evidence.",
+        "The tender explicitly requires submission of the completed BOQ and bid materials; EMD and performance guarantees are required in the stated circumstances.",
       evidence: {
         output:
-          "Tenderers must attach manufacturer authorization, UDYAM certificate, bank mandate, technical brochures, GST details, and EMD.",
-        found_document: "100492140_TD_299_NKhB.pdf",
-        documentId: "100492140_TD_299_NKhB.pdf",
-        pageNo: 22,
+          "Completed BOQ must be uploaded after entering bidder details and values; modification or replacement may cause rejection.",
+        found_document: "BOQ_626241.xls",
+        documentId: "2026_HBC_546595_1",
+        pageNo: 1,
       },
     },
   },
   failed: [],
   degraded: [],
-};
+});

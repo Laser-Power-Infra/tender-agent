@@ -36,7 +36,7 @@ class ItemRequest(BaseModel):
 
 class ItemResponse(BaseModel):
     item_category: str
-    item_name: str
+    item_names: list[str] = Field(default_factory=list)
     status: str
     error: str | None = None
 
@@ -72,11 +72,11 @@ def item(req: ItemRequest):
     category = req.item_category.strip()
     if not category:
         raise HTTPException(status_code=422, detail="item_category is required")
-    graph = get_item_graph(category)
+    graph = get_item_graph()
     result = graph.invoke({"item_category": category})
     return ItemResponse(
         item_category=category,
-        item_name=result.get("item_name") or "",
+        item_names=result.get("item_names") or [],
         status=result.get("status") or "unknown",
         error=result.get("error"),
     )

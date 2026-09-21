@@ -1,5 +1,24 @@
 from constants.tender_documents import TENDER_DOCUMENTS
 
+# ponytail: one shared prompt for all three document agents (gem / non_gem / common). The bucket's
+# document list is attached below per agent; only that list differs between them.
+_DOCUMENT_QUERY_PROMPT = """
+        You are a Tender Document Query Generator.
+
+        For every document listed below, output one object:
+        - "document": exact name as given, unchanged (join key — never rephrase)
+        - "query": one question checking if the tender mandates this document
+        - "keywords": 4-6 terms/acronyms/phrasings likely to appear in the tender document
+        for this item
+
+        Rules:
+        - Exactly one object per listed item. No merging, no skipping.
+        - Keywords must be realistic literal terms, not descriptions.
+        - Output only the structured JSON array. No prose, no explanation.
+
+        Documents:
+        """
+
 AGENT_PROMPTS: dict[str, str] = {
     "reverse_auction": """
             You are a Reverse Auction (RA) Query Generator.
@@ -83,58 +102,9 @@ AGENT_PROMPTS: dict[str, str] = {
         or a percentage of estimated cost, including any exemptions (MSME/
         Startup/Udyam) if stated
         """,
-    "gem_document_agent": """
-        You are a GeM (Government e-Marketplace) Query Generator.
-
-        For every document listed below, output one object:
-        - "document": exact name as given, unchanged (join key — never rephrase)
-        - "query": one question checking if the GeM bid document mandates this item
-        - "keywords": 4-6 terms/acronyms likely to appear in a GeM bid document for
-        this item (e.g. OEM authorization, GeM seller ID, BOQ, catalog, GTIN,
-        bid participation certificate — use GeM terminology where relevant)
-
-        Rules:
-        - Exactly one object per listed item. No merging, no skipping.
-        - Keywords must be realistic literal terms, not descriptions.
-        - Output only the structured JSON array. No prose, no explanation.
-
-        Documents:
-        """,  
-    "non_gem_document_agent": """
-        You are a Non-GeM Tender Query Generator.
-
-        For every document listed below, output one object:
-        - "document": exact name as given, unchanged
-        - "query": one question checking if the NIT/RFP mandates this item
-        - "keywords": 4-6 terms/acronyms/phrasings likely used in NIT/RFP
-        documents for this item (e.g. EMD, PBG, bid security, solvency
-        certificate, experience certificate)
-
-        Rules:
-        - Exactly one object per listed item. No merging, no skipping.
-        - Keywords must be realistic literal terms, not descriptions.
-        - Output only the structured JSON array. No prose, no explanation.
-
-        Documents:
-    """,
-    "common_document_agent": """
-        You are a Tender Common-Document Query Generator.
-
-            For every document listed below, output one object:
-            - "document": exact name as given, unchanged
-            - "query": one question checking if the tender mandates this document
-            - "keywords": 4-8 terms — full legal name, common acronyms, and
-            standard Indian statutory terminology variants
-
-            Rules:
-            - Exactly one object per listed item. No merging, no skipping.
-            - Keywords must be realistic literal terms, not descriptions.
-            - Output only the structured JSON array. No prose, no explanation.
-
-            Documents:
-
-
-        """,
+    "gem_document_agent": _DOCUMENT_QUERY_PROMPT,
+    "non_gem_document_agent": _DOCUMENT_QUERY_PROMPT,
+    "common_document_agent": _DOCUMENT_QUERY_PROMPT,
 }
 
 
@@ -157,6 +127,29 @@ for _agent, _bucket in _BUCKET_FOR_AGENT.items():
     # rstrip first: the prompts end on an indented blank line, which would swallow the first name
     AGENT_PROMPTS[_agent] = AGENT_PROMPTS[_agent].rstrip() + "\n" + "\n".join(f"- {d}" for d in _documents)
 
+
+# ponytail: one shared validator prompt for all three document agents — only the checklist that
+# execute_search groups by differs, and that comes from the agent's static queries, not this text.
+_DOCUMENT_SYNTHESIS_PROMPT = """
+        You are a Tender Document Requirement Validator.
+
+        For every document listed below, you are given its query/keywords and
+        retrieved search_results (chunks with source_file, page, text) from the
+        tender document set. Decide, per document, whether it is required.
+
+        Output structure (must match the document output model):
+        - "documents": list[str] — required documents
+        - "summary": str — concise summary
+        - "evidence": {output:str, found_document:str, documentId:str(externalId from metadata), pageNo:int}
+
+        Rules:
+        - Decide ONLY from provided search_results — never assume typical tender
+        requirements.
+        - evidence.output is paraphrase under 25 words; found_document is source_file, documentId is externalId, pageNo from payload.
+        - Structured JSON only, no prose.
+
+        Documents and search results:
+    """
 
 SYNTHESIS_PROMPT: dict[str, str] = {
     
@@ -251,64 +244,7 @@ SYNTHESIS_PROMPT: dict[str, str] = {
 
         Parameters and search results:
         """,
-    "gem_document_agent": """
-        You are a GeM Requirement Validator.
-
-        For every document listed below, you are given its query/keywords and
-        retrieved search_results (chunks with source_file, page, text) from a GeM
-        bid document. Decide, per document, whether it is required.
-
-        Output structure (must match GemDocumentOutput):
-        - "documents": list[str] — required GeM documents
-        - "summary": str — concise summary
-        - "evidence": {output:str, found_document:str, documentId:str(externalId from metadata), pageNo:int}
-
-        Rules:
-        - Decide ONLY from provided search_results — never assume typical GeM
-        requirements.
-        - evidence.output is paraphrase under 25 words; found_document is source_file, documentId is externalId, pageNo from payload.
-        - Structured JSON only, no prose.
-
-        Documents and search results:
-        """,  
-    "non_gem_document_agent": """
-        You are a Non-GeM Tender Requirement Validator.
-
-            For every document listed below, you are given its query/keywords and
-            retrieved search_results (chunks with source_file, page, text) from the
-            NIT/RFP document. Decide, per document, whether it is required.
-
-            Output structure (must match NonGemDocumentOutput):
-            - "documents": list[str] — required non-GeM documents
-            - "summary": str — concise summary
-            - "evidence": {output:str, found_document:str, documentId:str(externalId from metadata), pageNo:int}
-
-            Rules:
-            - Decide ONLY from provided search_results — never assume typical NIT/RFP
-            requirements.
-            - evidence.output is paraphrase under 25 words; found_document is source_file, documentId is externalId, pageNo from payload.
-            - Structured JSON only, no prose.
-
-            Documents and search results:
-    """,
-    "common_document_agent": """
-            You are a Common-Document Requirement Validator.
-
-            For every document listed below, you are given its query/keywords and
-            retrieved search_results (chunks with source_file, page, text) from the
-            tender document set. Decide, per document, whether it is required.
-
-            Output structure (must match CommonDocumentOutput):
-            - "documents": list[str] — required common documents
-            - "summary": str — concise summary
-            - "evidence": {output:str, found_document:str, documentId:str(externalId from metadata), pageNo:int}
-
-            Rules:
-            - Decide ONLY from provided search_results — never assume typical tender
-            requirements.
-            - evidence.output is paraphrase under 25 words; found_document is source_file, documentId is externalId, pageNo from payload.
-            - Structured JSON only, no prose.
-
-            Documents and search results:
-        """,
+    "gem_document_agent": _DOCUMENT_SYNTHESIS_PROMPT,
+    "non_gem_document_agent": _DOCUMENT_SYNTHESIS_PROMPT,
+    "common_document_agent": _DOCUMENT_SYNTHESIS_PROMPT,
 }

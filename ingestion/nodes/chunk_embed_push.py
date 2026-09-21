@@ -137,12 +137,30 @@ def _split_large_table(norm: str, chunk_size: int, overlap: int) -> list[str]:
     return out if out else [norm]
 
 
+# fixed metadata payload keys — chunk content may not overwrite these; "text" is the default content key
+_RESERVED_PAYLOAD_KEYS = {
+    "page_no", "pageNo", "chunk_idx", "chunkIdx", "chunk_count", "chunkCount",
+    "document_id", "documentId", "job_id", "jobId", "reference_no", "referenceNo",
+    "document_tag", "documentTag", "document_type", "documentType", "document_name",
+    "documentName", "original_url", "originalUrl", "total_pages", "totalPages",
+}
+
+
 def chunk_embed_push(state: IngestionState) -> dict[str, Any]:
     parsed_pages: list[dict] = state.get("parsed_pages") or []
     document_id: str | None = state.get("document_id")
     job_id: str | None = state.get("job_id")
     reference_no: str | None = state.get("reference_no")
     document_tag: str | None = state.get("document_tag")
+    content_key: str = (state.get("content_key") or "text").strip()
+    if not content_key:
+        err = "content_key missing or empty"
+        logger.error(err)
+        return {"status": "failed", "error": err, "chunks": [], "chunk_count": 0, "vector_ids": []}
+    if content_key in _RESERVED_PAYLOAD_KEYS:
+        err = f"content_key {content_key!r} conflicts with reserved payload key"
+        logger.error(err)
+        return {"status": "failed", "error": err, "chunks": [], "chunk_count": 0, "vector_ids": []}
 
     # filter only parsed pages with markdown
     usable = [p for p in parsed_pages if p.get("status") == "parsed" and (p.get("markdown") or p.get("text"))]
@@ -290,7 +308,7 @@ def chunk_embed_push(state: IngestionState) -> dict[str, Any]:
                 sparse = None
 
         payload = {
-            "text": c["text"],
+            content_key: c["text"],
             "page_no": c["page_no"],
             "pageNo": c["page_no"],
             "chunk_idx": c["metadata"]["chunk_idx"],

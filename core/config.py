@@ -86,7 +86,10 @@ class Settings(BaseSettings):
     rerank_device: str = "cpu"
 
     # chat llm — ponytail: one knob for every node, was hardcoded gpt-4o-mini in six files
-    chat_model: str = "gpt-5-mini"
+    chat_model: str = "gpt-5.6-luna"
+
+    # webhook — notify external system after final synthesis; empty disables
+    ted_webhook_url: str | None = None
 
     # ponytail: one strip validator for every optional string, was the same four lines x4
     @field_validator(
@@ -100,6 +103,7 @@ class Settings(BaseSettings):
         "rerank_model",
         "rerank_device",
         "chat_model",
+        "ted_webhook_url",
         mode="before",
     )
     @classmethod

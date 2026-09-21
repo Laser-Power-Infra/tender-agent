@@ -85,3 +85,5 @@ class IntelligenceState(TypedDict, total=False):
     agent_results: Annotated[dict, merge_agent_results]
     errors: Annotated[list[dict], operator.add]
     final_response: dict
+    # webhook delivery status from send_webhook node
+    webhook: dict

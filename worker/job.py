@@ -74,6 +74,8 @@ class IngestionJob(BaseModel):
     files: list[IngestionFile]
     # carried through to the intelligence job. "" means unknown — see IntelligenceJob.tender_type
     tender_type: str = Field(default="", validation_alias=AliasChoices("tender_type", "tenderType", "type"))
+    # payload key under which chunk content is stored; defaults to "text"
+    content_key: str = Field(default="text", validation_alias=AliasChoices("content_key", "contentKey"))
 
     @field_validator("job_id")
     @classmethod
@@ -103,6 +105,14 @@ class IngestionJob(BaseModel):
             raise ValueError("files must be non-empty")
         return v
 
+    @field_validator("content_key", mode="before")
+    @classmethod
+    def check_content_key(cls, v: str | None) -> str:
+        s = (v or "text").strip()
+        if not s:
+            raise ValueError("content_key must be non-empty")
+        return s
+
     def to_file_states(self) -> list[dict]:
         return [
             {
@@ -113,6 +123,7 @@ class IngestionJob(BaseModel):
                 "document_tag": f.fileTag,
                 "document_name": f.filename,
                 "external_document_id": f.external_document_id,
+                "content_key": self.content_key,
                 "status": "pending",
                 "error": None,
             }
