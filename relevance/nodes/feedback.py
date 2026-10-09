@@ -12,7 +12,7 @@ from vector.qdrant import ensure_collection, qdrant
 
 logger = logging.getLogger(__name__)
 
-BRIEF_KEYS = ("tenderbrief", "tenderBrief")
+BRIEF_KEYS = ("tenderbrief", "tenderBrief", "brief_text")  # brief_text: feedback messages
 
 
 def brief_of(extra: dict[str, Any]) -> str:

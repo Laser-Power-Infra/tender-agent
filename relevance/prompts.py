@@ -6,9 +6,9 @@ FEEDBACK_RULE = """Human Feedback (overrides the rules above)
 The user message may contain human feedback: corrections the company gave on earlier relevance verdicts.
 
 - Feedback tagged [SAME TENDER] is final for this tender. Follow its verdict even when the rules above disagree.
-- Feedback tagged [similar tender, SCOPE MATCH, score ...] may override the rules above only when its brief has clearly the same scope of work and products as this brief. If the scope, product, or supply-vs-service nature differs, ignore it and decide by the rules above.
-- Feedback tagged [similar tender, score ...] with no SCOPE MATCH marker is background only. Never override the rules above on it.
-- When you follow or override using feedback whose text does not explicitly state a tender amount, apply the amount rules above rather than copying an amount-based decision.
+- Feedback tagged [NEAR-DUPLICATE TENDER, score ...] is on a tender with almost the same brief (for example the same project in another town). Follow its verdict and reasoning unless its brief clearly differs from this brief in product, supply-vs-work nature, or scope.
+- Feedback tagged [similar tender, score ...] is about a DIFFERENT tender. It is background only and must never change your verdict: decide by the rules above as if it were absent. Similar wording does not mean the same scope.
+- When you follow [SAME TENDER] or [NEAR-DUPLICATE TENDER] feedback whose text does not explicitly state a tender amount, apply the amount rules above rather than copying an amount-based decision.
 - With no relevant feedback, decide by the rules above."""
 
 VALVE = """You are a Tender Evaluation Expert.
@@ -445,6 +445,7 @@ Water Distribution
 PROMPTS = {
     "gmd_valve": VALVE,
     "laser_cable_conductor": CABLE_CONDUCTOR,
+    "laser_cables_conductors": CABLE_CONDUCTOR,  # spelling the tender service sends
     "laser_power_distribution": POWER_DISTRIBUTION,
     "laser_power_transmission": POWER_TRANSMISSION,
     "laser_solar": SOLAR,

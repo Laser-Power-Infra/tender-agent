@@ -69,6 +69,9 @@ def test_analyze_sends_rule_and_tags():
     assert an.FEEDBACK_RULE in system
     assert "[SAME TENDER]\nbrief: own brief\nhuman feedback: verdict: not relevant" in human
     assert "[similar tender, score 0.80]" in human
+    # high cosine must not promote a different tender's feedback to a scope match
+    assert "NEAR-DUPLICATE" not in an._format_hit({"score": 0.79, "text": "y", "payload": {}})
+    assert "NEAR-DUPLICATE" in an._format_hit({"score": 0.93, "text": "y", "payload": {}})
 
 
 if __name__ == "__main__":

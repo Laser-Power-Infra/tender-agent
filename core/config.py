@@ -85,6 +85,9 @@ class Settings(BaseSettings):
     relevance_collection: str = "relevance"
     # cosine floor for similar-tender feedback; same-tender feedback ignores it. tune from search logs
     relevance_min_score: float = 0.5
+    # brief-to-brief cosine for a near-duplicate tender (same project, other town ~0.93) whose feedback may decide.
+    # cable supply-vs-laying / supply-vs-stringing pairs measured 0.77-0.79, so keep this above 0.8
+    relevance_override_score: float = 0.9
 
     # reranker (cross-encoder) — ponytail: env-driven, no hardcode in nodes
     rerank_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"

@@ -4,6 +4,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from core.config import settings
 from database.connection import get_session_context
 from database.models import AIRelevance
 from intelligence.llm import get_llm
@@ -20,16 +21,13 @@ class RelevanceVerdict(BaseModel):
     reason: str = Field(description="why the brief is or is not valid; name the human feedback when it decided the verdict")
 
 
-OVERRIDE_SCORE = 0.82
-
-
 def _format_hit(h: dict) -> str:
     payload = h.get("payload") or {}
     score = float(h.get("score") or 0)
     if h.get("same_tender"):
         tag = "[SAME TENDER]"
-    elif score >= OVERRIDE_SCORE:
-        tag = f"[similar tender, SCOPE MATCH, score {score:.2f}]"
+    elif score >= settings.relevance_override_score:
+        tag = f"[NEAR-DUPLICATE TENDER, score {score:.2f}]"
     else:
         tag = f"[similar tender, score {score:.2f}]"
     if payload.get("brief"):  # new-format point: brief and human words stored apart
