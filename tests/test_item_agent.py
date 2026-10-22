@@ -3,8 +3,8 @@
 Run: uv run python test_item_agent.py
 Calls no network and no LLM: empty-input guards return before embedding/model calls.
 """
-import intelligence.subagents.item.nodes.generate_query as gq
-import intelligence.subagents.item.nodes.hybrid_search as hs
+import agents.intelligence.subagents.item.nodes.generate_query as gq
+import agents.intelligence.subagents.item.nodes.hybrid_search as hs
 
 
 def test_extract_item_name_from_text_payload():

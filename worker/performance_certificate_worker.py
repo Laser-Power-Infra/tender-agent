@@ -4,8 +4,8 @@ import logging
 import pika
 from pydantic import ValidationError
 
-from core.config import settings
-from core.webhook_dispatch import client_id_from, job_events
+from lib.core.config import settings
+from lib.core.webhook_dispatch import client_id_from, job_events
 from worker.schema.job import PerformanceCertJob
 
 PERFORMANCE_CERT_QUEUE = "agent:performance_cert"
@@ -20,7 +20,7 @@ _graph = None  # ponytail: singleton, graph compile once
 def get_graph():
     global _graph
     if _graph is None:
-        from performance_cert.graph import build_performance_cert_graph
+        from agents.performance_cert.graph import build_performance_cert_graph
 
         _graph = build_performance_cert_graph()
     return _graph

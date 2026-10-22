@@ -107,30 +107,25 @@ QDRANT              stores/serves the indexed chunks
 
 ```
 tender-agent/
-├── core/config.py              # pydantic-settings Settings, single source of env truth
-├── database/
-│   ├── models.py               # SQLModel tables: users, documents, document_pages
-│   └── connection.py           # engine, session helpers, health check
-├── vector/qdrant.py            # client + ensure_collection (schema migrate, payload indexes)
-├── ingestion/
-│   ├── graph.py                # ingestion StateGraph
-│   ├── state.py                # IngestionState
-│   └── nodes/                  # initialize → download → parse_* → chunk/persist → cleanup
-├── intelligence/
-│   ├── graph.py                # intelligence StateGraph
-│   ├── state.py                # IntelligenceState
-│   ├── llm.py                  # shared ChatOpenAI singleton (model from CHAT_MODEL)
-│   ├── nodes/                  # analyze_request, create_checklist, run_task, synthesize_final_result
-│   ├── subagents/search/       # shared Search Sub-Agent (hybrid_search → rerank)
-│   └── subagents/specialized/  # per-domain agent (generate_queries → execute_search → synthesize)
-├── worker/
-│   ├── job.py                  # IngestionJob / IntelligenceJob payload validation
-│   ├── ingestion_worker.py     # agent:ingestion consumer
-│   └── intelligence_worker.py  # agent:intelligence consumer
-├── scripts/view_graph.py       # print mermaid for intelligence + search graphs
+├── lib/                        # shared code; never imports agents/
+│   ├── core/                   # config (pydantic-settings), llm.py (shared ChatOpenAI), webhook dispatch
+│   ├── database/               # SQLModel tables + connection helpers
+│   ├── vector/                 # qdrant client + ensure_collection, embeddings (dense + BM25)
+│   ├── documents/              # download.py (http / gdrive), parse.py (docling, xlsx, txt)
+│   └── constants/
+├── agents/                     # one package per agent; imports only itself + lib
+│   ├── ingestion/              # initialize → download → parse_* → chunk/persist → cleanup
+│   ├── intelligence/           # analyze → checklist → run_task → synthesize; search/item/specialized subagents
+│   ├── knowledgebase/
+│   ├── performance_cert/
+│   └── relevance/
+├── worker/                     # one RabbitMQ consumer per agent
+├── api/                        # FastAPI app
+├── scripts/                    # view_graph, reembed_feedback
+├── tests/                      # self-checks: uv run python -m tests.<name>
 ├── alembic/                    # migrations
 ├── docs/                       # architecture diagrams + orchestrator spec
-├── compose.yml                 # two services off one image
+├── compose.yml                 # one service per worker + api, one image
 └── Dockerfile                  # uv multi-stage build
 ```
 
@@ -138,7 +133,7 @@ tender-agent/
 
 ## 📥 Pipeline 1 — Ingestion
 
-`worker/ingestion_worker.py` → `ingestion/graph.py`
+`worker/ingestion_worker.py` → `agents/ingestion/graph.py`
 
 ```mermaid
 flowchart TD
@@ -181,7 +176,7 @@ flowchart TD
 
 ## 🔎 Pipeline 2 — Intelligence
 
-`intelligence/graph.py` + the shared Search Sub-Agent.
+`agents/intelligence/graph.py` + the shared Search Sub-Agent.
 
 ```mermaid
 flowchart TD
@@ -257,7 +252,7 @@ Step 8 (send to target / webhook) is still unimplemented.
 
 ## 🗄 Data model
 
-`database/models.py`, migrations under `alembic/versions/`.
+`lib/database/models.py`, migrations under `alembic/versions/`.
 
 **`documents`** — one row per ingested file, unique on `document_id`.
 
@@ -346,7 +341,7 @@ Invalid payloads are nacked with `requeue=False` and logged with the full Pydant
 
 ## ⚙️ Configuration
 
-Copy `.env.example` → `.env`. All settings resolve through `core/config.py` (`pydantic-settings`, case-insensitive, unknown keys ignored).
+Copy `.env.example` → `.env`. All settings resolve through `lib/core/config.py` (`pydantic-settings`, case-insensitive, unknown keys ignored).
 
 | Variable | Required | Default | Purpose |
 |---|:---:|---|---|
@@ -361,9 +356,10 @@ Copy `.env.example` → `.env`. All settings resolve through `core/config.py` (`
 | `EMBEDDING_BATCH_SIZE` | | `100` | Texts per embedding request |
 | `QDRANT_COLLECTION` | | `tender_chunks` | Collection name |
 | `CHUNK_SIZE` / `CHUNK_OVERLAP` | | `1000` / `200` | Splitter config |
-| `CHAT_MODEL` | | `gpt-4o-mini` | LLM for every node. One knob — the shared client lives in `intelligence/llm.py` |
+| `CHAT_MODEL` | | `gpt-4o-mini` | LLM for every node. One knob — the shared client lives in `lib/core/llm.py` |
 | `RERANK_MODEL` | | `cross-encoder/ms-marco-MiniLM-L-6-v2` | CrossEncoder model |
 | `RERANK_DEVICE` | | `cpu` | Set `cuda` where a GPU exists |
+| `RERANK_BACKEND` | | `cross_encoder` | `jev` asks JEV relevant/irrelevant per hit (one call per search, needs `TYPESAFE_API_KEY`) |
 | `LANGFUSE_ENABLED` | | `false` | Tracing off by default; `LANGFUSE_PUBLIC_KEY` / `SECRET_KEY` / `HOST` when enabled |
 | `GOOGLE_OAUTH_CLIENT_ID` | Drive only | — | Desktop OAuth client |
 | `GOOGLE_OAUTH_CLIENT_SECRET` | Drive only | — | |

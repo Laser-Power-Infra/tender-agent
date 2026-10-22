@@ -8,13 +8,13 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field, HttpUrl, field_validator
 from sqlmodel import Session, select
 
-from core.webhook_events import WEBHOOK_EVENTS
-from database.connection import get_session
-from database.models import Webhook, new_webhook_secret
-from intelligence.subagents.item.graph import get_item_graph
-from intelligence.subagents.search.graph import get_search_graph
-from relevance.nodes.category import add_category_feedback
-from relevance.prompts import PROMPTS
+from lib.core.webhook_events import WEBHOOK_EVENTS
+from lib.database.connection import get_session
+from lib.database.models import Webhook, new_webhook_secret
+from agents.intelligence.subagents.item.graph import get_item_graph
+from agents.intelligence.subagents.search.graph import get_search_graph
+from agents.relevance.nodes.category import add_category_feedback
+from agents.relevance.prompts import PROMPTS
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s - %(message)s")
 

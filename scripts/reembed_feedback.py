@@ -7,10 +7,10 @@ Run: uv run python -m scripts.reembed_feedback
 """
 from qdrant_client.http.models import PointStruct
 
-from core.config import settings
-from relevance.nodes.feedback import BRIEF_KEYS
-from vector.embeddings import get_dense
-from vector.qdrant import qdrant
+from lib.core.config import settings
+from agents.relevance.nodes.feedback import BRIEF_KEYS
+from lib.vector.embeddings import get_dense
+from lib.vector.qdrant import qdrant
 
 
 def parse(chunk: str) -> dict[str, str]:

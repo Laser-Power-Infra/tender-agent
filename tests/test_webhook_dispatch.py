@@ -18,7 +18,7 @@ for _k, _v in {
 }.items():
     os.environ.setdefault(_k, _v)
 
-from core import webhook_dispatch as wd  # noqa: E402
+from lib.core import webhook_dispatch as wd  # noqa: E402
 
 SECRET = "whsec_test"
 received: list[dict] = []

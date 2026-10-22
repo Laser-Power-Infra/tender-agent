@@ -5,7 +5,7 @@ No network: Qdrant, embeddings and the LLM are faked.
 """
 from types import SimpleNamespace
 
-import relevance.nodes.category as ca
+import agents.relevance.nodes.category as ca
 
 CO = "laser"
 

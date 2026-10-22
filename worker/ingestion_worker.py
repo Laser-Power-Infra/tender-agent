@@ -6,9 +6,9 @@ import logging
 import pika
 from pydantic import ValidationError
 
-from core.config import settings
-from core.webhook_dispatch import client_id_from, job_events
-from ingestion.graph import build_ingestion_graph
+from lib.core.config import settings
+from lib.core.webhook_dispatch import client_id_from, job_events
+from agents.ingestion.graph import build_ingestion_graph
 from worker.schema.job import IngestionJob
 
 INGESTION_QUEUE = "agent:ingestion"

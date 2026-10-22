@@ -29,7 +29,7 @@ def _install_stubs():
     qc.http = http
     qc.QdrantClient = lambda **kw: _FakeClient()
 
-    cfg = types.ModuleType("core.config")
+    cfg = types.ModuleType("lib.core.config")
     cfg.settings = types.SimpleNamespace(
         qdrant_url="http://stub",
         qdrant_api_key="stub",
@@ -41,7 +41,7 @@ def _install_stubs():
         "qdrant_client": qc,
         "qdrant_client.http": http,
         "qdrant_client.http.models": models,
-        "core.config": cfg,
+        "lib.core.config": cfg,
     })
     return _VectorParams
 
@@ -82,7 +82,7 @@ class _VP:
 
 
 _install_stubs()
-import vector.qdrant as q  # noqa: E402
+import lib.vector.qdrant as q  # noqa: E402
 
 
 def _fresh(**client_attrs):

@@ -28,10 +28,10 @@ def _stub_langgraph():
     sys.modules.update({"langgraph": lg, "langgraph.graph": graph_mod, "langgraph.types": types_mod})
     # the node imports pull in langchain/openai; the fan-out logic does not need them
     for name in (
-        "intelligence.nodes.analyze_request",
-        "intelligence.nodes.create_checklist",
-        "intelligence.nodes.run_task",
-        "intelligence.nodes.synthesize_final_result",
+        "agents.intelligence.nodes.analyze_request",
+        "agents.intelligence.nodes.create_checklist",
+        "agents.intelligence.nodes.run_task",
+        "agents.intelligence.nodes.synthesize_final_result",
     ):
         mod = types.ModuleType(name)
         setattr(mod, name.rsplit(".", 1)[1], lambda state: {})
@@ -39,8 +39,8 @@ def _stub_langgraph():
 
 
 _stub_langgraph()
-from intelligence.graph import fan_out_tasks  # noqa: E402
-from intelligence.state import merge_agent_results, merge_checklist  # noqa: E402
+from agents.intelligence.graph import fan_out_tasks  # noqa: E402
+from agents.intelligence.state import merge_agent_results, merge_checklist  # noqa: E402
 
 
 def test_fan_out_sends_one_per_pending_task():

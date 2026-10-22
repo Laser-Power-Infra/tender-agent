@@ -1,6 +1,6 @@
 """Self-check: a subagent failure must survive to run_task instead of being overwritten.
 
-Both subgraphs are unconditional linear chains, so before the reducers in intelligence/state.py the
+Both subgraphs are unconditional linear chains, so before the reducers in agents/intelligence/state.py the
 last node's status replaced the failing node's — generate_queries "failed" became execute_search
 "no_plan" became synthesize "no_results", which counted as a completed task.
 
@@ -19,7 +19,7 @@ for _k, _v in {
 }.items():
     os.environ.setdefault(_k, _v)
 
-from intelligence.state import (  # noqa: E402
+from agents.intelligence.state import (  # noqa: E402
     DEGRADED_STATUSES,
     FAILED_STATUSES,
     is_done,
@@ -61,7 +61,7 @@ def test_status_classification():
 
 def test_failure_survives_the_specialized_chain():
     """The end-to-end guarantee, through the real compiled graph."""
-    from intelligence.subagents.specialized.graph import get_specialized_graph
+    from agents.intelligence.subagents.specialized.graph import get_specialized_graph
 
     out = get_specialized_graph().invoke(
         {"reference_no": "", "task": {"task_id": "t1", "agent": "emd_agent"}, "agent": "emd_agent"}
@@ -71,7 +71,7 @@ def test_failure_survives_the_specialized_chain():
 
 
 def test_run_task_records_the_failure():
-    from intelligence.nodes.run_task import run_task
+    from agents.intelligence.nodes.run_task import run_task
 
     out = run_task({"reference_no": "", "task": {"task_id": "t1", "agent": "emd_agent"}, "agent": "emd_agent"})
     item = out["checklist"][0]
@@ -84,8 +84,8 @@ def test_run_task_records_the_failure():
 
 
 def test_final_response_lists_it_as_failed():
-    from intelligence.nodes.run_task import run_task
-    from intelligence.nodes.synthesize_final_result import synthesize_final_result
+    from agents.intelligence.nodes.run_task import run_task
+    from agents.intelligence.nodes.synthesize_final_result import synthesize_final_result
 
     task = run_task({"reference_no": "", "task": {"task_id": "t1", "agent": "emd_agent"}, "agent": "emd_agent"})
     final = synthesize_final_result({"reference_no": "R1", "agent_results": task["agent_results"]})["final_response"]

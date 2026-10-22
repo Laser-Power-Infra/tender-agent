@@ -3,7 +3,7 @@
 Run: python test_page_markdowns.py
 No installed deps needed — docling/pypdf imports in this module are lazy.
 """
-from ingestion.nodes.parse_document import _PAGE_BREAK, _page_markdowns
+from lib.documents.parse import _PAGE_BREAK, _page_markdowns
 
 
 class FakeDoc:

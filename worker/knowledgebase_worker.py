@@ -4,8 +4,8 @@ import logging
 import pika
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, ValidationError, field_validator
 
-from core.config import settings
-from knowledgebase.graph import build_knowledgebase_graph
+from lib.core.config import settings
+from agents.knowledgebase.graph import build_knowledgebase_graph
 
 KB_QUEUE = "agent:knowledgebase"
 

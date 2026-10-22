@@ -26,29 +26,29 @@ def _stub_deps():
         pyd.Field = lambda *a, **k: None
         sys.modules["pydantic"] = pyd
 
-    llm = types.ModuleType("intelligence.llm")
+    llm = types.ModuleType("lib.core.llm")
     llm.get_llm = lambda: None
-    sys.modules.setdefault("intelligence.llm", llm)
+    sys.modules.setdefault("lib.core.llm", llm)
 
 
 _stub_deps()
 
-from constants.tender_documents import TENDER_DOCUMENTS  # noqa: E402
-from intelligence.nodes.create_checklist import AVAILABLE_AGENTS, create_checklist  # noqa: E402
-from intelligence.subagents.specialized.document_agents import (  # noqa: E402
+from lib.constants.tender_documents import TENDER_DOCUMENTS  # noqa: E402
+from agents.intelligence.nodes.create_checklist import AVAILABLE_AGENTS, create_checklist  # noqa: E402
+from agents.intelligence.subagents.specialized.document_agents import (  # noqa: E402
     DOCUMENT_AGENTS,
     SECTION_QUERIES,
     STATIC_QUERIES,
     _keywords,
     agents_for_tender_type,
 )
-from intelligence.subagents.specialized.prompts import (  # noqa: E402
+from agents.intelligence.subagents.specialized.prompts import (  # noqa: E402
     _BUCKET_FOR_AGENT,
     AGENT_PROMPTS,
     SYNTHESIS_PROMPT,
 )
-from intelligence.subagents.specialized.query_schemas import QueryItem  # noqa: E402
-from intelligence.subagents.specialized.schemas import (  # noqa: E402
+from agents.intelligence.subagents.specialized.query_schemas import QueryItem  # noqa: E402
+from agents.intelligence.subagents.specialized.schemas import (  # noqa: E402
     AGENT_OUTPUT_MODELS,
     BaseSynthesizeDocumentOutput,
 )

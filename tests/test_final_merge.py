@@ -2,7 +2,7 @@
 
 Run: uv run python test_final_merge.py
 """
-from intelligence.nodes.synthesize_final_result import synthesize_final_result
+from agents.intelligence.nodes.synthesize_final_result import synthesize_final_result
 
 
 def _envelope(agent, result, status="success", task_id=None, sources_text="RAWCHUNK"):

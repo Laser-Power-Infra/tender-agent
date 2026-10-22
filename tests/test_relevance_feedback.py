@@ -5,9 +5,9 @@ No network: Qdrant, embeddings and the LLM are faked.
 """
 from types import SimpleNamespace
 
-import relevance.nodes.analyze as an
-import relevance.nodes.search as se
-from relevance.nodes.feedback import feedback_point_id
+import agents.relevance.nodes.analyze as an
+import agents.relevance.nodes.search as se
+from agents.relevance.nodes.feedback import feedback_point_id
 
 REF, CO = "T-1", "gmd"
 OWN = feedback_point_id(REF, CO)

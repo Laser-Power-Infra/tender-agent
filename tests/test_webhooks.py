@@ -8,7 +8,7 @@ Run: uv run python tests/test_webhooks.py
 from fastapi.testclient import TestClient
 
 from api.main import app
-from core.webhook_events import WEBHOOK_EVENTS
+from lib.core.webhook_events import WEBHOOK_EVENTS
 
 client = TestClient(app)
 

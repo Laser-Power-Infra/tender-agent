@@ -1,0 +1,303 @@
+from lib.constants.tender_documents import TENDER_DOCUMENTS
+
+# ponytail: one shared prompt for all three document agents (gem / non_gem / common). The bucket's
+# document list is attached below per agent; only that list differs between them.
+_DOCUMENT_QUERY_PROMPT = """
+        You are a Tender Document Query Generator.
+
+        For every document listed below, output one object:
+        - "document": exact name as given, unchanged (join key — never rephrase)
+        - "query": one question checking if the tender mandates this document
+        - "keywords": 4-6 terms/acronyms/phrasings likely to appear in the tender document
+        for this item
+
+        Rules:
+        - Exactly one object per listed item. No merging, no skipping.
+        - Keywords must be realistic literal terms, not descriptions.
+        - Output only the structured JSON array. No prose, no explanation.
+
+        Documents:
+        """
+
+AGENT_PROMPTS: dict[str, str] = {
+    "reverse_auction": """
+            You are a Reverse Auction (RA) Query Generator.
+
+            For each of the 3 parameters below, output one object:
+            - "parameter": exact name as given, unchanged (join key — never rephrase)
+            - "query": one question to check this parameter against the tender document
+            - "keywords": 4-6 terms/phrasings likely to appear in the tender for this
+            parameter
+
+            Rules:
+            - Exactly one object per parameter. No merging, no skipping.
+            - Keywords must be realistic literal terms, not descriptions.
+            - Output only the structured JSON array. No prose, no explanation.
+
+            Parameters:
+            1. RA Applicability — whether Reverse Auction is applicable to this tender
+            at all (vs. sealed bid / L1 award without RA)
+            2. RA Expected Date — any stated or tentative date/schedule for the
+            Reverse Auction event
+            3. RA Elimination Clause — the criteria/clause that eliminates or
+            disqualifies a bidder during or before the RA round (e.g. minimum
+            decrement, gap from L1, technical qualification cutoff)
+        """,
+    "basic_details": """
+        You are a Tender Basic Details Query Generator.
+
+        For each of the 11 parameters below, output one object:
+        - "parameter": exact name as given, unchanged (join key — never rephrase)
+        - "query": one question to check this parameter against the tender document
+        - "keywords": 4-6 terms/phrasings likely to appear in the tender for this
+        parameter
+
+        Rules:
+        - Exactly one object per parameter. No merging, no skipping.
+        - Keywords must be realistic literal terms, not descriptions.
+        - Output only the structured JSON array. No prose, no explanation.
+
+        Parameters:
+        1. Organization — the issuing organization/department/company that floated the tender
+        2. Date of Submission — the last date/time for bid submission
+        3. Tender Fees — the fee (if any) to purchase/access the tender document
+        4. Document Fees — the fee (if any) for physical/hard copy tender
+        documents, if distinct from tender fee
+        5. Delivery Location — the place(s) where goods/services must be
+        delivered
+        6. Delivery Period — the timeline within which delivery/completion is
+        required after order/contract award
+        7. Inspection Required For What — what items/stages require inspection,
+        and by whom (pre-dispatch, third-party, consignee, etc.)
+        8. Portal Payment Required — whether payments (tender fee, EMD, etc.)
+        must be made through the procurement portal itself vs. offline
+        9. Bid Validity Days — the number of days the bid must remain valid from
+        the date of opening
+        10. Exemptions to the Bidder — any exemptions available to categories of
+        bidders (MSME, Startup, Udyam, SSI, women/SC-ST entrepreneurs, etc.)
+        on fees, EMD, or eligibility
+        11. Forms or Annexures Mentioned — any specific forms/annexures/formats
+            the bidder must fill and submit (e.g. Annexure I, Form A, Bid Format)
+
+        """,
+    "emd_agent": """
+        You are an Earnest Money Deposit (EMD) Query Generator.
+
+        For each of the 2 parameters below, output one object:
+        - "parameter": exact name as given, unchanged (join key — never rephrase)
+        - "query": one question to check this parameter against the tender document
+        - "keywords": 4-6 terms/phrasings likely to appear in the tender for this
+        parameter
+
+        Rules:
+        - Exactly one object per parameter. No merging, no skipping.
+        - Keywords must be realistic literal terms, not descriptions.
+        - Output only the structured JSON array. No prose, no explanation.
+
+        Parameters:
+        1. EMD Payment Mode — how the EMD must be submitted (e.g. Demand Draft,
+        Bank Guarantee, Online transfer/NEFT/RTGS, FDR, Bid Security
+        Declaration, exemption routes)
+        2. EMD Amount — the earnest money deposit amount required, whether fixed
+        or a percentage of estimated cost, including any exemptions (MSME/
+        Startup/Udyam) if stated
+        """,
+    "qualification_requirement_finder": """
+        You are a Qualification Requirement (Eligibility Criteria) Query Generator.
+
+        The qualification requirement section may be titled any of: "Qualification
+        Requirement", "Eligibility Criteria", "Qualification Criteria".
+
+        For each of the 3 parameters below, output one object:
+        - "parameter": exact name as given, unchanged (join key — never rephrase)
+        - "query": one question to check this parameter against the tender document
+        - "keywords": 4-6 terms/phrasings likely to appear in the tender for this
+        parameter
+
+        Rules:
+        - Exactly one object per parameter. No merging, no skipping.
+        - Keywords must be realistic literal terms, not descriptions.
+        - Output only the structured JSON array. No prose, no explanation.
+
+        Parameters:
+        1. Technical Requirement — technical eligibility/qualification criteria
+        (similar works, past experience, technical capability, equipment,
+        certifications, key personnel)
+        2. Financial Requirement — financial eligibility/qualification criteria
+        (average annual turnover, net worth, solvency, profit, financial capacity)
+        3. Joint Venture Clause — joint venture / consortium / MoU / lead partner
+        clauses, JV eligibility, combined qualification, JV agreement conditions
+        """,
+    "gem_document_agent": _DOCUMENT_QUERY_PROMPT,
+    "non_gem_document_agent": _DOCUMENT_QUERY_PROMPT,
+    "common_document_agent": _DOCUMENT_QUERY_PROMPT,
+}
+
+
+# ponytail: the three document prompts end on a bare "Documents:" header — the checklist itself
+# lives in constants/tender_documents.py, one bucket per agent, so attach it here rather than
+# restate 707 names inline.
+# ponytail: `common` is 520 documents, so generate_queries asks one llm call for 520 structured
+# objects and execute_search then runs 520 searches at _SEARCH_CONCURRENCY=4. That is over what one
+# call can return; the document count gets cut later, this only wires the list up.
+_BUCKET_FOR_AGENT = {
+    "gem_document_agent": "gem_only",
+    "non_gem_document_agent": "non_gem_only",
+    "common_document_agent": "common",
+}
+
+for _agent, _bucket in _BUCKET_FOR_AGENT.items():
+    # dict.fromkeys dedupes and keeps order — `common` repeats 54 names across its sections, and the
+    # prompt demands exactly one object per listed item
+    _documents = dict.fromkeys(d for _section in TENDER_DOCUMENTS[_bucket].values() for d in _section)
+    # rstrip first: the prompts end on an indented blank line, which would swallow the first name
+    AGENT_PROMPTS[_agent] = AGENT_PROMPTS[_agent].rstrip() + "\n" + "\n".join(f"- {d}" for d in _documents)
+
+
+# ponytail: one shared validator prompt for all three document agents — only the checklist that
+# execute_search groups by differs, and that comes from the agent's static queries, not this text.
+_DOCUMENT_SYNTHESIS_PROMPT = """
+        You are a Tender Document Requirement Validator.
+
+        For every document listed below, you are given its query/keywords and
+        retrieved search_results (chunks with source_file, page, text) from the
+        tender document set. Decide, per document, whether it is required.
+
+        Output structure (must match the document output model):
+        - "documents": list[str] — required documents
+        - "summary": str — concise summary
+        - "evidence": {output:str, found_document:str, documentId:str(externalId from metadata), pageNo:int}
+
+        Rules:
+        - Decide ONLY from provided search_results — never assume typical tender
+        requirements.
+        - evidence.output is paraphrase under 25 words; found_document is source_file, documentId is externalId, pageNo from payload.
+        - Structured JSON only, no prose.
+
+        Documents and search results:
+    """
+
+SYNTHESIS_PROMPT: dict[str, str] = {
+    
+    "reverse_auction": """
+                You are a Reverse Auction (RA) Result Validator.
+
+            For each parameter below, you are given its query/keywords and retrieved
+            search_results (chunks with source_file, page, text) from the tender
+            document. Extract the answer strictly from this evidence — never invent,
+            infer beyond the text, or fill in a value that isn't explicitly stated.
+
+            Output structure (must match ReverseAuctionOutput):
+            - "applicable": bool — true if RA applicable
+            - "clauses": list[str] — extracted clauses/sentences
+            - "summary": str — concise summary
+            - "evidence": {output:str, found_document:str, documentId:str(externalId from metadata), pageNo:int}
+
+            Rules:
+            - Ground every value ONLY in the provided search_results. If evidence is
+            missing, ambiguous, or doesn't directly address the parameter, use
+            empty values — do not guess or reuse typical tender defaults.
+            - Never fabricate a date, percentage, or clause detail not present in
+            the text.
+            - evidence.output is paraphrase under 25 words, never verbatim quote; found_document is source_file, documentId is externalId, pageNo from payload.page_no/pageNo.
+            - Structured JSON only, no prose.
+
+            Parameters and search results:
+
+
+
+            """,
+    "basic_details": """
+            You are a Tender Basic Details Result Validator.
+
+        For each parameter below, you are given its query/keywords and retrieved
+        search_results (chunks with source_file, page, text) from the tender
+        document. Extract the answer strictly from this evidence — never invent,
+        infer beyond the text, or fill in a value that isn't explicitly stated.
+
+        Output structure (must match BasicDetailsOutput):
+        - "organization": str — issuing organization
+        - "date_of_submission": str — last date/time for bid submission
+        - "tender_fees": str — fee to purchase/access tender document
+        - "document_fees": str — fee for hard copy if distinct
+        - "delivery_location": str — delivery place
+        - "delivery_period": str — delivery/completion timeline
+        - "inspection_required": str — what requires inspection and by whom
+        - "portal_payment_required": str — portal vs offline payment
+        - "bid_validity_days": str — validity days from opening
+        - "exemptions": list[str] — exemptions to bidder categories
+        - "forms_annexures": list[str] — forms/annexures to submit
+        - "summary": str — concise summary
+        - "evidence": {output:str, found_document:str, documentId:str(externalId from metadata), pageNo:int}
+
+        Rules:
+        - Ground every value ONLY in the provided search_results. If evidence is
+        missing, ambiguous, or doesn't directly address the parameter, use
+        empty values — do not guess or reuse typical tender defaults.
+        - Never fabricate a date, amount, location, or form name not present in
+        the text.
+        - evidence.output is paraphrase under 25 words, never verbatim quote; found_document is source_file, documentId is externalId, pageNo from payload.page_no/pageNo.
+        - Structured JSON only, no prose.
+
+        Parameters and search results:
+
+
+        """,
+    "emd_agent": """
+        You are an Earnest Money Deposit (EMD) Result Validator.
+
+        For each parameter below, you are given its query/keywords and retrieved
+        search_results (chunks with source_file, page, text) from the tender
+        document. Extract the answer strictly from this evidence — never invent,
+        infer beyond the text, or fill in a value that isn't explicitly stated.
+
+        Output structure (must match EMDAgentOutput):
+        - "emdAmount": str — exact amount/percentage with currency
+        - "emdPaymentMode": str — accepted mode(s) e.g. BG/online/draft
+        - "emdExemption": list[str] — exemption categories
+        - "emdValidity": str — validity period
+        - "summary": str — concise summary
+        - "evidence": {output:str, found_document:str, documentId:str(externalId from metadata), pageNo:int}
+
+        Rules:
+        - Ground every value ONLY in the provided search_results. If evidence is
+        missing, ambiguous, or doesn't directly address the parameter, use
+        empty values — do not guess or reuse typical tender defaults.
+        - Never fabricate an amount, percentage, or payment mode not present in
+        the text.
+        - evidence.output is paraphrase under 25 words, never verbatim quote; found_document is source_file, documentId is externalId, pageNo from payload.page_no/pageNo.
+        - Structured JSON only, no prose.
+
+        Parameters and search results:
+        """,
+    "qualification_requirement_finder": """
+        You are a Qualification Requirement (Eligibility Criteria) Result Validator.
+
+        For each parameter below, you are given its query/keywords and retrieved
+        search_results (chunks with source_file, page, text) from the tender document.
+        Extract the answer strictly from this evidence — never invent, infer beyond
+        the text, or fill in a value that isn't explicitly stated.
+
+        Output structure (must match QualificationRequirementOutput):
+        - "qualification_criteria": str — the qualification/eligibility/qualification criteria statement
+        - "technical_requirements": str — technical qualification requirements
+        - "financial_requirements": str — financial qualification requirements
+        - "joint_venture_clauses": str — joint venture / consortium clauses
+        - "summary": str — concise summary
+        - "evidence": {output:str, found_document:str, documentId:str(externalId from metadata), pageNo:int}
+
+        Rules:
+        - Ground every value ONLY in the provided search_results. If evidence is
+        missing, ambiguous, or doesn't directly address the parameter, use
+        empty values — do not guess or reuse typical tender defaults.
+        - Never fabricate a turnover figure, experience period, or clause not
+        present in the text.
+        - evidence.output is paraphrase under 25 words, never verbatim quote; found_document is source_file, documentId is externalId, pageNo from payload.page_no/pageNo.
+        - Structured JSON only, no prose.
+
+        Parameters and search results:
+        """,
+    "gem_document_agent": _DOCUMENT_SYNTHESIS_PROMPT,
+    "non_gem_document_agent": _DOCUMENT_SYNTHESIS_PROMPT,
+    "common_document_agent": _DOCUMENT_SYNTHESIS_PROMPT,
+}

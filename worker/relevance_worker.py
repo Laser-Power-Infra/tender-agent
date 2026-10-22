@@ -4,8 +4,8 @@ import logging
 import pika
 from pydantic import ValidationError
 
-from core.config import settings
-from core.webhook_dispatch import client_id_from, job_events
+from lib.core.config import settings
+from lib.core.webhook_dispatch import client_id_from, job_events
 from worker.schema.job import RelevanceJob
 
 RELEVANCE_QUEUE = "agent:relevance"
@@ -20,7 +20,7 @@ _graph = None  # ponytail: singleton, graph compile once
 def get_graph():
     global _graph
     if _graph is None:
-        from relevance.graph import build_relevance_graph
+        from agents.relevance.graph import build_relevance_graph
 
         _graph = build_relevance_graph()
     return _graph

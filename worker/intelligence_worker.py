@@ -4,8 +4,8 @@ import logging
 import pika
 from pydantic import ValidationError
 
-from core.config import settings
-from core.webhook_dispatch import client_id_from, job_events
+from lib.core.config import settings
+from lib.core.webhook_dispatch import client_id_from, job_events
 from worker.schema.job import IntelligenceJob
 
 INTELLIGENCE_QUEUE = "agent:intelligence"
@@ -45,7 +45,7 @@ _graph = None  # ponytail: singleton, graph compile once
 def get_graph():
     global _graph
     if _graph is None:
-        from intelligence.graph import build_intelligence_graph
+        from agents.intelligence.graph import build_intelligence_graph
 
         _graph = build_intelligence_graph()
     return _graph

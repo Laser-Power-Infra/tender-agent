@@ -78,17 +78,17 @@ Only three things tie the two halves together:
 
 | File | Role |
 |---|---|
-| `core/webhook_events.py` | **Single source of truth** for event names and descriptions (`WEBHOOK_EVENTS` dict). |
-| `core/webhook_dispatch.py` | Dispatch core: `Outcome`, `job_events`, `emit`, `sign`, `_post`, `_subscribers`, `client_id_from`. |
-| `database/models.py` | `Webhook` table model, plus `new_client_id()` and `new_webhook_secret()`. |
+| `lib/core/webhook_events.py` | **Single source of truth** for event names and descriptions (`WEBHOOK_EVENTS` dict). |
+| `lib/core/webhook_dispatch.py` | Dispatch core: `Outcome`, `job_events`, `emit`, `sign`, `_post`, `_subscribers`, `client_id_from`. |
+| `lib/database/models.py` | `Webhook` table model, plus `new_client_id()` and `new_webhook_secret()`. |
 | `alembic/versions/7b1e9c2a4f60_add_webhooks.py` | Migration that creates the `webhooks` table and the unique index on `client_id`. |
 | `api/main.py` (bottom section, "Webhook registration") | REST endpoints and the route serving the page. |
 | `api/static/webhooks.html` | Complete registration UI in one file: vanilla JS, no build step. |
 | `worker/ingestion_worker.py` | `document.ingested`: one event per job, forwards `client_id` to the intelligence job. |
 | `worker/intelligence_worker.py` | `intelligence.completed`: a partial report counts as success. |
 | `worker/relevance_worker.py` | `relevance.analyzed` and `relevance.feedback`: the base is chosen from `payload_type`; `client_id` is stripped from `extra`. |
-| `intelligence/graph.py`, `relevance/graph.py` | The old webhook nodes, commented out and kept for rollback. |
-| `intelligence/nodes/send_webhook.py`, `relevance/nodes/webhook.py` | The old node implementations, unused and kept for reference. |
+| `agents/intelligence/graph.py`, `agents/relevance/graph.py` | The old webhook nodes, commented out and kept for rollback. |
+| `agents/intelligence/nodes/send_webhook.py`, `agents/relevance/nodes/webhook.py` | The old node implementations, unused and kept for reference. |
 | `tests/test_webhook_dispatch.py` | Dispatcher self-check. Needs no DB; uses a local HTTP receiver. |
 | `tests/test_webhooks.py` | Registration API self-check. Needs a DB. |
 
@@ -107,7 +107,7 @@ Every job type has exactly two events, which share a base. The suffix is literal
 
 ### Source of truth
 
-`core/webhook_events.py`:
+`lib/core/webhook_events.py`:
 
 ```python
 """Events a registered webhook can subscribe to.
@@ -161,7 +161,7 @@ Never rename or remove an event that receivers already use. Add a new one and re
 | `is_active` | bool, default true | A paused webhook receives nothing. |
 | `created_at`, `updated_at` | timestamp | Server defaults; `updated_at` changes on update. |
 
-tender-agent version (`database/models.py`):
+tender-agent version (`lib/database/models.py`):
 
 ```python
 def new_client_id() -> str:
@@ -402,7 +402,7 @@ Fonts are Schibsted Grotesk for the UI and JetBrains Mono for machine strings (c
 
 ## 8. Dispatch core
 
-The whole feature is one module with no dependencies beyond the standard library and your ORM. The full reference is `core/webhook_dispatch.py`.
+The whole feature is one module with no dependencies beyond the standard library and your ORM. The full reference is `lib/core/webhook_dispatch.py`.
 
 ### Contract: exactly one event per job
 
@@ -752,7 +752,7 @@ If the target codebase already sends webhooks from inside a pipeline, whether a 
 1. Build the dispatch core and wire the workers as above.
 2. **Comment out** the old call sites; do not delete them. In tender-agent:
    ```python
-   # intelligence/graph.py
+   # agents/intelligence/graph.py
    # Replaced by worker-level dispatch (core/webhook_dispatch.py). Uncomment to roll back.
    # from intelligence.nodes.send_webhook import send_webhook
    ...
@@ -763,7 +763,7 @@ If the target codebase already sends webhooks from inside a pipeline, whether a 
    # graph.add_edge("send_webhook", END)
    graph.add_edge("synthesize_final_result", END)
    ```
-   `relevance/graph.py` follows the same pattern: `analysis → END` replaces `analysis → webhook → END`.
+   `agents/relevance/graph.py` follows the same pattern: `analysis → END` replaces `analysis → webhook → END`.
 3. Keep the old node files unchanged for reference.
 4. **Rollback:** uncomment the import, the node and its edges, then delete the direct `→ END` edge.
 5. Tell receivers about the format change. The old nodes sent ad-hoc bodies: the TED `PATCH` had `agentReport` as a JSON *string*, and the relevance `POST` had `{referenceNo, company, valid, reason}` to a fixed per-company URL. The new envelope is section 9's format, signed, and routed by `client_id`.
