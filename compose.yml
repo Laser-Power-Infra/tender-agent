@@ -9,7 +9,7 @@ services:
     command: python -m worker.ingestion_worker
     restart: unless-stopped
     env_file:
-      - .env.production
+      - .env.production 
     volumes:
       # ponytail: docling/HuggingFace weights survive a redeploy instead of downloading on first job
       - model-cache:/models
