@@ -18,9 +18,9 @@ logger = logging.getLogger(__name__)
 # ponytail: rules first (keyword + voltage, plain code), an LLM only for work tenders no rule can place.
 # The old all-LLM version returned null even for "132/33 kv substation" and "distribution transformer".
 SUBSTATION = re.compile(r"sub[\s-]?stations?\b|\bs/s\b")
-# supply-only = a supply word and no work word. Only the cable prompt accepts supply-only; every EPC prompt rejects it.
+# cable-only = a supply or cable word and no work word. Only the cable prompt accepts it; every EPC prompt rejects it.
 SUPPLY = re.compile(r"\bsuppl|\bprocure|\bpurchase|\bdeliver|rate contract")
-WORK = re.compile(r"erect|\bstring|install|\blay|commission|construct|turnkey|\bepc\b|\bsitc\b")
+WORK = re.compile(r"erect|\bstring|install|\blay|commission|construct|turnkey|\bepc\b|\bsitc\b|\bconversion\b")
 CABLE = re.compile(r"\bcables?\b|\bconductors?\b|\bacsr\b|\baaac?\b|\bxlpe\b|\bmvcc\b")
 RAILWAY = re.compile(r"railway|\brly\b|\bohe\b|traction|\bmetro\b|\bmrts\b|\brrts\b")
 SOLAR = re.compile(r"solar|photovoltaic|\bspv\b|\bbess\b|battery energy storage")
@@ -46,8 +46,8 @@ def decide(brief: str) -> str | None:
     kv = max_kv(b)
     sub = bool(SUBSTATION.search(b))
     work = bool(WORK.search(b))
-    # supply-only first: "supply of acsr conductor for 132 kv transmission line" is a cable tender, not transmission
-    if SUPPLY.search(b) and not work:
+    # cable-only first: "supply of acsr conductor for 132 kv transmission line" is a cable tender, not transmission
+    if (SUPPLY.search(b) or CABLE.search(b)) and not work:
         return "cables_conductors" if CABLE.search(b) else None
     # first match wins. railway/solar/water go before voltage: a traction substation or solar plant has a kV rating too
     if RAILWAY.search(b):
@@ -184,7 +184,8 @@ if __name__ == "__main__":
         "sitc of 132 kv line": "power_transmission",
         "supply installation testing and commissioning of ht line": "power_distribution",
         "sitc of rmu": "power_distribution",
-        "33 kv xlpe cable 3 core 300 sqmm": None,
+        "33 kv xlpe cable 3 core 300 sqmm": "cables_conductors",
+        "3cx16+25sqmm lt ab xlpe cable": "cables_conductors",
         "design supply erection of 25 kv ohe for railway electrification": "railways",
         "epc of 5 mw ground mounted solar plant with 33 kv line": "solar",
         "construction of rural piped water supply scheme under jjm": "water_distribution",
