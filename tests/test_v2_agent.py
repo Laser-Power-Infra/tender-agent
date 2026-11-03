@@ -135,10 +135,112 @@ def test_build_agent_runs_tool_loop():
     assert sum(1 for m in last["messages"] if m.type == "tool") == 1
 
 
+def _fake_llm(result=None, raise_=None):
+    import agents.intelligence.v2.run_task as r
+
+    class S:
+        calls = 0
+
+        def invoke(self, msgs):
+            S.calls += 1
+            if raise_:
+                raise raise_
+            return result
+
+    class L:
+        def with_structured_output(self, model):
+            return S()
+
+    r.get_llm = lambda: L()
+    return S
+
+
+def _state(agent):
+    return {"reference_no": "T1", "task": {"task_id": agent, "agent": agent, "status": "pending"}, "agent": agent}
+
+
+def test_run_task_success_envelope():
+    from langchain_core.messages import AIMessage
+    import agents.intelligence.v2.run_task as r
+    from agents.intelligence.subagents.specialized.schemas import EMDAgentOutput
+
+    _stub_search([_hit(1)])
+    r._MODEL = _fake_model(_tool_call("emd amount"), AIMessage(content="done"))
+    S = _fake_llm(EMDAgentOutput(emdAmount="Rs 1,00,000"))
+    out = r.run_task(_state("emd_agent"))
+    env = out["agent_results"]["emd_agent"]
+    assert env["status"] == "success" and env["error"] is None, env
+    assert env["result"]["emdAmount"] == "Rs 1,00,000" and len(env["sources"]) == 1
+    assert out["checklist"][0]["status"] == "success" and out["errors"] == []
+    assert S.calls == 1
+    assert set(env) == {"task_id", "agent", "status", "result", "sources", "error"}
+
+
+def test_run_task_no_tool_calls_still_success():
+    from langchain_core.messages import AIMessage
+    import agents.intelligence.v2.run_task as r
+    from agents.intelligence.subagents.specialized.schemas import EMDAgentOutput
+
+    _stub_search([_hit(1)])
+    r._MODEL = _fake_model(AIMessage(content="nothing"))
+    S = _fake_llm(EMDAgentOutput())
+    env = r.run_task(_state("emd_agent"))["agent_results"]["emd_agent"]
+    assert env["status"] == "success" and env["sources"] == [] and S.calls == 1
+
+
+def test_run_task_recursion_limit_partial():
+    import itertools
+    import agents.intelligence.v2.run_task as r
+    from agents.intelligence.subagents.specialized.schemas import EMDAgentOutput
+
+    _stub_search([_hit(1)])
+    r._MODEL = _fake_model(infinite=(_tool_call(f"q{i}", i) for i in itertools.count()))
+    S = _fake_llm(EMDAgentOutput(emdAmount="partial"))
+    out = r.run_task(_state("emd_agent"))
+    env = out["agent_results"]["emd_agent"]
+    assert env["status"] == "partial", env
+    assert env["error"].startswith("recursion limit 12 hit after"), env["error"]
+    assert env["result"]["emdAmount"] == "partial" and S.calls == 1
+    assert len(env["sources"]) >= 1
+    assert out["checklist"][0]["status"] == "success"  # partial is degraded, not failed
+
+
+def test_run_task_finalize_raises_is_failed():
+    from langchain_core.messages import AIMessage
+    import agents.intelligence.v2.run_task as r
+
+    _stub_search([_hit(1)])
+    r._MODEL = _fake_model(AIMessage(content="nothing"))
+    _fake_llm(raise_=RuntimeError("llm down"))
+    out = r.run_task(_state("emd_agent"))
+    env = out["agent_results"]["emd_agent"]
+    assert env["status"] == "failed" and "llm down" in env["error"], env
+    assert env["result"]["emdAmount"] == ""
+    assert out["checklist"][0]["status"] == "failed" and len(out["errors"]) == 1
+
+
+def test_run_task_document_agent_delegates_to_v1():
+    import agents.intelligence.v2.run_task as r
+
+    called = {}
+    r.run_task_v1 = lambda state: called.setdefault("state", state) and {"checklist": [], "agent_results": {}, "errors": []}
+    r.build_agent = lambda *a, **k: (_ for _ in ()).throw(AssertionError("v2 must not build"))
+    r.run_task(_state("common_document_agent"))
+    assert called["state"]["agent"] == "common_document_agent"
+    called.clear()
+    r.run_task(_state("nope"))
+    assert called["state"]["agent"] == "nope"
+
+
 if __name__ == "__main__":
     test_graph_picks_v2_run_task()
     test_prompts_cover_reasoning_agents_only()
     test_build_agent_runs_tool_loop()
+    test_run_task_success_envelope()
+    test_run_task_no_tool_calls_still_success()
+    test_run_task_recursion_limit_partial()
+    test_run_task_finalize_raises_is_failed()
+    test_run_task_document_agent_delegates_to_v1()
     test_tool_formats_hits_and_collects_sources()
     test_tool_empty_query_skips_search()
     test_tool_no_hits()

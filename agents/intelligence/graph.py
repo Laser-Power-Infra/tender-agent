@@ -10,8 +10,6 @@ from agents.intelligence.nodes.synthesize_final_result import synthesize_final_r
 # Replaced by worker-level dispatch (core/webhook_dispatch.py). Uncomment to roll back.
 # from intelligence.nodes.send_webhook import send_webhook
 from agents.intelligence.state import IntelligenceState
-from agents.intelligence.v2.run_task import run_task as run_task_v2
-from lib.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +43,10 @@ def build_intelligence_graph(checkpointer=None):
     graph = StateGraph(IntelligenceState)
     graph.add_node("analyze_request", analyze_request)
     graph.add_node("create_checklist", create_checklist)
+    # lazy: tests/test_fan_out.py stubs langgraph and imports this module for fan_out_tasks only
+    from agents.intelligence.v2.run_task import run_task as run_task_v2
+    from lib.core.config import settings
+
     v2 = settings.intelligence_version == "v2"
     logger.info("intelligence run_task version=%s", "v2" if v2 else "v1")
     graph.add_node("run_task", run_task_v2 if v2 else run_task)
