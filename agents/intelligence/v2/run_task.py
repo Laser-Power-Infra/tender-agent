@@ -6,6 +6,7 @@ from agents.intelligence.nodes.run_task import run_task as run_task_v1
 from agents.intelligence.state import DEGRADED_STATUSES, is_done
 from agents.intelligence.subagents.specialized.schemas import AGENT_OUTPUT_MODELS
 from agents.intelligence.v2.agent import _RECURSION_LIMIT, V2_AGENTS, build_agent
+from agents.intelligence.v2.prompts import AGENT_PROMPTS
 from lib.core.llm import get_llm
 
 logger = logging.getLogger(__name__)
@@ -15,9 +16,13 @@ _STEP_LIMIT_MSG = "Sorry, need more steps to process this request."  # langgraph
 _MODEL = None  # tests inject a fake chat model here
 
 
-def _finalize(messages, OutputModel):
-    """One structured call over the agent transcript. Same path for a normal end and a recursion salvage."""
-    return get_llm().with_structured_output(OutputModel).invoke(list(messages) + [("human", _SALVAGE_PROMPT)])
+def _finalize(agent, reference_no, messages, OutputModel):
+    """One structured call over the agent transcript. Same path for a normal end and a recursion salvage.
+
+    The system prompt is prepended here because create_react_agent adds it per call, not to state["messages"].
+    """
+    system = ("system", AGENT_PROMPTS[agent].format(reference_no=reference_no))
+    return get_llm().with_structured_output(OutputModel).invoke([system, *messages, ("human", _SALVAGE_PROMPT)])
 
 
 def run_task(state: dict) -> dict:
@@ -56,7 +61,7 @@ def run_task(state: dict) -> dict:
         error = f"recursion limit {_RECURSION_LIMIT} hit after {searches} searches"
 
     try:
-        result = _finalize(messages, OutputModel).model_dump()
+        result = _finalize(agent, reference_no, messages, OutputModel).model_dump()
     except Exception as e:
         status, error = "failed", f"{type(e).__name__}: {e}"
         result = OutputModel().model_dump()

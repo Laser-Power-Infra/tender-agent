@@ -4,7 +4,8 @@ _RULES = """
 How to work:
 - Call search_tender for one question at a time, 3 to 12 words, in tender vocabulary. Pass 2 to 5 keywords:
   acronyms, form names, clause words. Example: query "EMD amount and payment mode", keywords ["EMD", "earnest money", "bid security"].
-- Read every chunk returned. A field is answered when a chunk states it. Quote nothing you did not see in a search result.
+- At most 3 search_tender calls per turn. Read every chunk returned. A field is answered when a chunk states it.
+  Quote nothing you did not see in a search result.
 - After a miss, reword once with different terms. Never repeat a query.
 - Stop and answer when every field has evidence, or every missing field was searched twice.
 - Leave a field empty when the tender does not state it. Never fill a typical tender default.

@@ -25,7 +25,10 @@ def get_llm(chat_model: str = settings.chat_model, use_responses_api: bool = Fal
             # every gpt-5* non-chat model (chat_models/base.py validate_temperature), so the calls
             # ran at the default anyway. Pass reasoning_effort="none" if determinism is worth losing
             # reasoning for; leaving the dead argument in only implied a guarantee that was not there.
-            _llms[key] = ChatOpenAI(model=chat_model, api_key=api_key, timeout=120, max_retries=3, use_responses_api=use_responses_api)
+            # responses api defaults to store=True (30-day retention of every tender chunk on OpenAI's side);
+            # chat completions never stored. store=False + encrypted reasoning keeps multi-turn reasoning working.
+            extra = {"store": False, "include": ["reasoning.encrypted_content"]} if use_responses_api else {}
+            _llms[key] = ChatOpenAI(model=chat_model, api_key=api_key, timeout=120, max_retries=3, use_responses_api=use_responses_api, **extra)
     return _llms[key]
 
 

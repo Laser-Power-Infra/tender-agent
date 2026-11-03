@@ -14,7 +14,8 @@ _SOURCE_TEXT_CHARS = 500
 
 
 def make_search_tool(reference_no: str, sources: list[dict]):
-    """Search tool bound to one tender. Every hit the agent sees is also appended to `sources`."""
+    """Search tool bound to one tender. Every hit the agent sees is also appended to `sources`, once per chunk."""
+    seen: set = set()
 
     @tool
     def search_tender(query: str, keywords: list[str] = []) -> str:  # noqa: B006
@@ -44,6 +45,13 @@ def make_search_tool(reference_no: str, sources: list[dict]):
         for h in hits:
             source_file, page = _provenance(h)
             text = h.get("text") or ""
+            payload = h.get("payload") or {}
+            doc_id = payload.get("document_id") or payload.get("documentId")
+            header = f"[{source_file}, page {page if page is not None else 'unspecified'}" + (f", id {doc_id}]" if doc_id else "]")
+            blocks.append(f"{header}\n{text[:_CHUNK_CHARS]}")
+            if h.get("id") in seen:  # the agent still sees it; the webhook payload lists it once
+                continue
+            seen.add(h.get("id"))
             sources.append(
                 {
                     "chunk_id": h.get("id"),
@@ -54,10 +62,6 @@ def make_search_tool(reference_no: str, sources: list[dict]):
                     "page": page,
                 }
             )
-            payload = h.get("payload") or {}
-            doc_id = payload.get("document_id") or payload.get("documentId")
-            header = f"[{source_file}, page {page if page is not None else 'unspecified'}" + (f", id {doc_id}]" if doc_id else "]")
-            blocks.append(f"{header}\n{text[:_CHUNK_CHARS]}")
         logger.info("search_tender ref=%s query=%r keywords=%s -> %s chunks", reference_no, q[:80], len(keywords or []), len(hits))
         return "\n---\n".join(blocks)
 

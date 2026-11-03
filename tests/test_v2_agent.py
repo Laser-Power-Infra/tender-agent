@@ -140,9 +140,11 @@ def _fake_llm(result=None, raise_=None):
 
     class S:
         calls = 0
+        last_msgs = None
 
         def invoke(self, msgs):
             S.calls += 1
+            S.last_msgs = list(msgs)
             if raise_:
                 raise raise_
             return result
@@ -174,6 +176,30 @@ def test_run_task_success_envelope():
     assert out["checklist"][0]["status"] == "success" and out["errors"] == []
     assert S.calls == 1
     assert set(env) == {"task_id", "agent", "status", "result", "sources", "error"}
+    # the finalize call carries the agent's rules, not just the transcript
+    from agents.intelligence.v2.prompts import AGENT_PROMPTS
+
+    assert S.last_msgs[0] == ("system", AGENT_PROMPTS["emd_agent"].format(reference_no="T1")), S.last_msgs[0]
+    assert S.last_msgs[-1][0] == "human"
+
+
+def test_tool_dedupes_repeated_chunks():
+    from agents.intelligence.v2.tools import make_search_tool
+
+    _stub_search([_hit(1), _hit(2)])
+    sources = []
+    t = make_search_tool("T1", sources)
+    t.invoke({"query": "emd amount"})
+    t.invoke({"query": "earnest money"})
+    assert [s["chunk_id"] for s in sources] == ["c1", "c2"]
+
+
+def test_responses_llm_does_not_store():
+    from lib.core.llm import get_llm
+
+    llm = get_llm("x", use_responses_api=True)
+    assert llm.store is False and "reasoning.encrypted_content" in (llm.include or [])
+    assert get_llm("x").store is None
 
 
 def test_run_task_no_tool_calls_still_success():
@@ -241,6 +267,8 @@ if __name__ == "__main__":
     test_run_task_recursion_limit_partial()
     test_run_task_finalize_raises_is_failed()
     test_run_task_document_agent_delegates_to_v1()
+    test_tool_dedupes_repeated_chunks()
+    test_responses_llm_does_not_store()
     test_tool_formats_hits_and_collects_sources()
     test_tool_empty_query_skips_search()
     test_tool_no_hits()
