@@ -1,7 +1,9 @@
 import faulthandler
+import functools
 import gc
 import json
 import logging
+import threading
 
 import pika
 from pydantic import ValidationError
@@ -94,6 +96,14 @@ def connect_rabbitmq() -> pika.BlockingConnection:
 
 
 def _safe_ack_nack(ch, method, ack: bool):
+    # pika channels are not thread-safe; the job runs off the IO thread, so hand the ack back to it
+    try:
+        ch.connection.add_callback_threadsafe(functools.partial(_ack_nack_now, ch, method, ack))
+    except Exception as e:
+        logger.warning("Ack/nack schedule failed (connection lost) delivery_tag=%s error=%s", method.delivery_tag, e)
+
+
+def _ack_nack_now(ch, method, ack: bool):
     try:
         if ch.is_open:
             if ack:
@@ -130,6 +140,13 @@ def _publish_intelligence(reference_no: str, tender_type: str = "", client_id: s
 
 
 def handle_message(ch, method, properties, body):
+    # BlockingConnection only services heartbeats while this callback is not running. A multi-minute
+    # docling job on this thread starves them and the broker drops the socket before the ack.
+    # prefetch_count=1 keeps jobs serial: the next delivery waits for this one's ack.
+    threading.Thread(target=_process, args=(ch, method, body), daemon=True).start()
+
+
+def _process(ch, method, body):
     logger.info("Received raw body=%r", body)
     try:
         payload = json.loads(body)
@@ -202,7 +219,7 @@ def main():
 
     channel.basic_consume(queue=INGESTION_QUEUE, on_message_callback=handle_message)
 
-    logger.info("Connected to RabbitMQ")
+    logger.info("Connected to RabbitMQ heartbeat=%s", connection._impl.params.heartbeat)
     logger.info("Waititing for jobs on: %s", INGESTION_QUEUE)
 
     try:

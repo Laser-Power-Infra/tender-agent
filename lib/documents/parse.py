@@ -164,7 +164,7 @@ def _parse_with_docling(state: dict, kind: str) -> dict:
                 parsed_pages.append({"page_no": i, "markdown": None, "text": None, "metadata": meta, "status": "failed", "error": page_err})
             elif markdown and markdown.strip():
                 ok += 1
-                logger.info("page parsed %s page_no=%s/%s len=%s has_table=%s ref=%s", kind, i, total, len(markdown), "|" in markdown, reference_no)
+                logger.info("page parsed %s page_no=%s/%s len=%s has_table=%s ref=%s preview=%r", kind, i, total, len(markdown), "|" in markdown, reference_no, markdown[:100])
                 parsed_pages.append({"page_no": i, "markdown": markdown, "text": markdown, "metadata": meta, "status": "parsed", "error": None})
             else:
                 logger.error("%s page %s failed empty markdown ref=%s tag=%s", kind, i, reference_no, document_tag)
