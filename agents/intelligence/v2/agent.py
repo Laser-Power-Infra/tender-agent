@@ -16,6 +16,7 @@ V2_AGENTS = frozenset(AGENT_PROMPTS)
 def build_agent(agent: str, reference_no: str, sources: list[dict], model=None):
     """ReAct agent for one reasoning section. Tool hits land in `sources`. `model` is for tests."""
     prompt = AGENT_PROMPTS[agent].format(reference_no=reference_no)
-    graph = create_react_agent(model or get_llm(), [make_search_tool(reference_no, sources)], prompt=prompt)
+    # responses api: chat completions returns 400 for function tools on gpt-5* with reasoning on
+    graph = create_react_agent(model or get_llm(use_responses_api=True), [make_search_tool(reference_no, sources)], prompt=prompt)
     logger.info("built v2 agent=%s ref=%s", agent, reference_no)
     return graph.with_config(recursion_limit=_RECURSION_LIMIT)
