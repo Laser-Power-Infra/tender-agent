@@ -99,6 +99,8 @@ class Settings(BaseSettings):
 
     # chat llm — ponytail: one knob for every node, was hardcoded gpt-4o-mini in six files
     chat_model: str = "gpt-5.6-luna"
+    # v1 | v2 — v2 runs the 4 reasoning agents as ReAct loops (agents/intelligence/v2)
+    intelligence_version: str = "v1"
 
     # webhook — notify external system after final synthesis; empty disables
     ted_webhook_url: str | None = None
@@ -131,6 +133,7 @@ class Settings(BaseSettings):
         "rerank_device",
         "rerank_backend",
         "chat_model",
+        "intelligence_version",
         "ted_webhook_url",
         "laser_url",
         "gmd_url",
