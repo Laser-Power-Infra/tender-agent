@@ -54,7 +54,10 @@ def make_search_tool(reference_no: str, sources: list[dict]):
                     "page": page,
                 }
             )
-            blocks.append(f"[{source_file}, page {page if page is not None else 'unspecified'}]\n{text[:_CHUNK_CHARS]}")
+            payload = h.get("payload") or {}
+            doc_id = payload.get("document_id") or payload.get("documentId")
+            header = f"[{source_file}, page {page if page is not None else 'unspecified'}" + (f", id {doc_id}]" if doc_id else "]")
+            blocks.append(f"{header}\n{text[:_CHUNK_CHARS]}")
         logger.info("search_tender ref=%s query=%r keywords=%s -> %s chunks", reference_no, q[:80], len(keywords or []), len(hits))
         return "\n---\n".join(blocks)
 

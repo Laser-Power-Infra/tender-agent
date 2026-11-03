@@ -90,8 +90,55 @@ def test_tool_search_raises():
     assert make_search_tool("T1", []).invoke({"query": "emd"}).startswith("search failed: RuntimeError: boom")
 
 
+def test_prompts_cover_reasoning_agents_only():
+    from agents.intelligence.subagents.specialized.schemas import AGENT_OUTPUT_MODELS
+    from agents.intelligence.v2.agent import _RECURSION_LIMIT, V2_AGENTS
+    from agents.intelligence.v2.prompts import AGENT_PROMPTS
+
+    assert V2_AGENTS == {"reverse_auction", "basic_details", "emd_agent", "qualification_requirement_finder"}
+    assert _RECURSION_LIMIT == 12
+    for name, p in AGENT_PROMPTS.items():
+        assert "{reference_no}" in p and "search_tender" in p and "stop" in p.lower(), name
+        p.format(reference_no="T1")  # only placeholder
+        for field in AGENT_OUTPUT_MODELS[name].model_fields:
+            if field not in ("summary", "evidence"):
+                assert field in p, f"{name} prompt missing field {field}"
+
+
+def _fake_model(*msgs, infinite=None):
+    from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
+
+    class Fake(GenericFakeChatModel):
+        def bind_tools(self, tools, **kwargs):  # the base raises NotImplementedError
+            return self
+
+    return Fake(messages=infinite if infinite is not None else iter(msgs))
+
+
+def _tool_call(query, i=1):
+    from langchain_core.messages import AIMessage
+
+    return AIMessage(content="", tool_calls=[{"name": "search_tender", "args": {"query": query, "keywords": ["EMD"]}, "id": f"t{i}"}])
+
+
+def test_build_agent_runs_tool_loop():
+    from langchain_core.messages import AIMessage
+    from agents.intelligence.v2 import agent as a
+
+    _stub_search([_hit(1)])
+    sources = []
+    g = a.build_agent("emd_agent", "T1", sources, model=_fake_model(_tool_call("emd amount"), AIMessage(content="EMD is Rs 1,00,000 by DD.")))
+    last = None
+    for last in g.stream({"messages": [("human", "Analyse tender T1")]}, stream_mode="values"):
+        pass
+    assert len(sources) == 1
+    assert sum(1 for m in last["messages"] if m.type == "tool") == 1
+
+
 if __name__ == "__main__":
     test_graph_picks_v2_run_task()
+    test_prompts_cover_reasoning_agents_only()
+    test_build_agent_runs_tool_loop()
     test_tool_formats_hits_and_collects_sources()
     test_tool_empty_query_skips_search()
     test_tool_no_hits()
