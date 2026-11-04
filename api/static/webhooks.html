@@ -62,7 +62,10 @@
 
   /* Table */
   .surface { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
-  table { width: 100%; border-collapse: collapse; }
+  /* fixed layout: auto layout let nowrap url/client/tag cells push the actions column past the card's overflow:hidden */
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  th:nth-child(2) { width: 230px; }
+  th:nth-child(4) { width: 70px; }
   th {
     text-align: left; font-size: 13px; font-weight: 500; color: var(--slate);
     padding: 10px 16px; border-bottom: 1px solid var(--line); background: #FAFBFC;
@@ -71,12 +74,12 @@
   tr:last-child td { border-bottom: 0; }
   tr.inactive .name, tr.inactive .url, tr.inactive .tags { opacity: .5; }
   .name { font-weight: 600; }
-  .url { color: var(--slate); max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .url { color: var(--slate); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .client { display: inline-flex; align-items: center; gap: 2px; }
   .col-actions { width: 48px; text-align: right; }
 
   /* Subscribed events, exact names */
-  .tags { display: flex; flex-wrap: wrap; gap: 4px; max-width: 300px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 4px; }
   .tag { font-family: var(--mono); font-size: 12px; line-height: 1.4; padding: 4px 8px; border-radius: 6px; background: var(--fog); white-space: nowrap; }
   .tag.more { font-family: var(--sans); color: var(--slate); background: none; cursor: help; }
 
