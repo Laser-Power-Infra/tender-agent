@@ -639,7 +639,7 @@ def tender_agent_webhook(request):
   - that webhook is active
   - its `events` contains this exact event
 - **No `client_id` means no webhook is sent.** This is logged as `No client_id on job, webhook skipped`.
-- **Chained jobs must forward it.** In tender-agent, the ingestion worker publishes the follow-up intelligence job with the same `client_id` (`_publish_intelligence(..., client_id)`), so the same client also receives `intelligence.completed_*`. Apply the same rule to any job that enqueues another job.
+- **No job enqueues another job.** Every worker ends with its own webhook (`<agent>.completed_*`); the caller decides whether to queue the next agent. If a chained job is ever added, it must forward the same `client_id`.
 - **Keep `client_id` out of business logic.** The relevance worker passes every unknown payload key to the pipeline as `extra`, and the feedback step embeds *all* of `extra` into the vector store. The worker therefore strips `client_id`/`clientId` from `extra` before invoking the graph. Check your own code for any place that serialises "all extra fields" of a job: it must not leak the routing key.
 
 ---
