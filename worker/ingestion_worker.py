@@ -14,7 +14,6 @@ from agents.ingestion.graph import build_ingestion_graph
 from worker.schema.job import IngestionJob
 
 INGESTION_QUEUE = "agent:ingestion"
-INTELLIGENCE_QUEUE = "agent:intelligence"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s - %(message)s")
 
@@ -116,29 +115,6 @@ def _ack_nack_now(ch, method, ack: bool):
         logger.warning("Ack/nack failed (connection lost) delivery_tag=%s error=%s", method.delivery_tag, e)
 
 
-def _publish_intelligence(reference_no: str, tender_type: str = "", client_id: str | None = None):
-    # ponytail: was `"GEM" if "gem" in reference_no.lower() else "NON_GEM"` — a substring test that
-    # called any reference containing "gem" (GEMINI, NONGEM-…) a GeM tender, and asserted every other
-    # reference was definitively non-GeM. The type now comes from the job; "" means unknown, which
-    # runs the common documents only.
-    payload = json.dumps({"referenceNo": reference_no, "tender_type": tender_type, "client_id": client_id})
-    conn = None
-    try:
-        conn = connect_rabbitmq()
-        ch = conn.channel()
-        ch.queue_declare(queue=INTELLIGENCE_QUEUE, durable=True)
-        ch.basic_publish(exchange="", routing_key=INTELLIGENCE_QUEUE, body=payload.encode(), properties=pika.BasicProperties(delivery_mode=2))
-        logger.info("Published intelligence job reference_no=%s tender_type=%s", reference_no, tender_type)
-    except Exception as e:
-        logger.warning("Intelligence publish failed ref=%s error=%s", reference_no, e)
-    finally:
-        try:
-            if conn and conn.is_open:
-                conn.close()
-        except Exception:
-            pass
-
-
 def handle_message(ch, method, properties, body):
     # BlockingConnection only services heartbeats while this callback is not running. A multi-minute
     # docling job on this thread starves them and the broker drops the socket before the ack.
@@ -196,7 +172,6 @@ def _process(ch, method, body):
             _reclaim_memory()
             outcome.succeed({"files": files})
             logger.info("RSS job end job_id=%s rss_mb=%.1f", job.job_id, _rss_mb())
-        _publish_intelligence(job.reference_no, job.tender_type, client_id)
         _safe_ack_nack(ch, method, ack=True)
     except ValidationError as e:
         logger.error("Validation failed body=%r errors=%s", body, e.errors())
