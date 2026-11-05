@@ -16,6 +16,7 @@ dependencies = [
     "google-auth>=2.57.1",
     "google-auth-oauthlib>=1.4.1",
     "httpx>=0.28.1",
+    "langchain>=1.4.8",
     "langchain-openai>=1.6.0",
     "langchain-text-splitters>=1.1.2",
     "langfuse>=4.15.1",

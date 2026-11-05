@@ -51,6 +51,18 @@ def get_graph():
     return _graph
 
 
+def _trace_config(reference_no: str) -> dict | None:
+    """Langfuse trace per job; nested graph/LLM calls attach through langchain's run context."""
+    if not settings.langfuse_enabled:
+        return None
+    from langfuse import Langfuse
+    from langfuse.langchain import CallbackHandler
+
+    # registers the default client once; CallbackHandler() and get_client() reuse it
+    Langfuse(public_key=settings.langfuse_public_key, secret_key=settings.langfuse_secret_key, base_url=settings.langfuse_host)
+    return {"callbacks": [CallbackHandler()], "metadata": {"langfuse_session_id": reference_no}}
+
+
 def handle_message(ch, method, properties, body):
     logger.info("Received raw body=%r", body)
     try:
@@ -72,7 +84,8 @@ def handle_message(ch, method, properties, body):
                     "tender_type": job.tender_type,
                     "user_query": payload.get("user_query") or payload.get("userQuery") or "",
                     "parsed_request": payload.get("parsed_request") or payload.get("parsedRequest") or {},
-                }
+                },
+                config=_trace_config(job.reference_no),
             )
             final = result.get("final_response") or {}
             logger.info("Intelligence done ref=%s final=%r", job.reference_no, final)
@@ -82,6 +95,10 @@ def handle_message(ch, method, properties, body):
             else:
                 outcome.fail("; ".join(map(str, result.get("errors") or [])) or "no sections produced", final or None)
         _safe_ack_nack(ch, method, ack=True)
+        if settings.langfuse_enabled:
+            from langfuse import get_client
+
+            get_client().flush()
     except ValidationError as e:
         logger.error("Validation failed body=%r errors=%s", body, e.errors())
         _safe_ack_nack(ch, method, ack=False)
